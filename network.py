@@ -24,10 +24,9 @@ class RNN(object):
         self.saver = tf.train.Checkpoint(model=self.model, optimizer=self.optimizer)
         self.ckpt_dir = "./ckpts"
 
-        batch_size = tf.Variable(constants.training_batch_size, dtype=tf.int32, trainable=False, name='batch_size')
-        self.data_generator = DataGenerator(batch_size)
+        self.data_generator = DataGenerator(constants.training_batch_size)
 
-    def calc_loss(self, pred_list, gt_list):
+    def _calc_loss(self, pred_list, gt_list):
         # TODO: Regularizer
         return tf.losses.mse(pred_list, gt_list)
 
@@ -36,14 +35,15 @@ class RNN(object):
         trainable_vars = self.model.trainable_variables
         with tf.GradientTape() as tape:
             pred = self.model(input_list)
-            loss = self.calc_loss(pred, gt_list)
+            loss = self._calc_loss(pred, gt_list)
         grads = tape.gradient(loss, trainable_vars)
-        return zip(grads, trainable_vars)
+        return loss, zip(grads, trainable_vars)
 
     def train_one_iteration(self):
         input_list, gt_list = self.data_generator.next_batch(training_flag=True)
-        grads_and_vars = self._build_grads(input_list, gt_list)
+        loss, grads_and_vars = self._build_grads(input_list, gt_list)
         self.optimizer.apply_gradients(grads_and_vars)
+        return loss
 
     def save(self):
         self.saver.save(self.ckpt_dir)
