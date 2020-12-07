@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib
+import matplotlib.pyplot as plt
 from scipy.stats import norm
 
 
@@ -50,8 +50,11 @@ class DataGenerator(object):
         # ground truth - [bs, sequence, features]
         # feature[0] - expected response
         # TODO: save the training samples. Or just create a static data set.
-        # TODO: noise signal ratio.
         # TODO: do I need give time for the RNN to process
+
+        # TODO: noise signal ratio.
+        # TODO: Avoid the value of gt goes too high -> normalize. Combine with active function
+
 
         # Params
         sd_v = np.random.uniform(low=self.min_velocity_sd, high=self.max_velocity_sd, size=self.bs)
@@ -68,25 +71,25 @@ class DataGenerator(object):
         v_sequences = v_sequences * v_masks
         a_sequences = a_sequences * a_masks
 
+        # Add Margin
+        left_margins_len = np.random.randint(low=0, high=self.empty_point_num+1, size=self.bs)
+        right_margins_len = self.empty_point_num - left_margins_len
+        v_sequences = list(map(self._append_zero_margins, v_sequences, left_margins_len, right_margins_len))
+        a_sequences = list(map(self._append_zero_margins, a_sequences, left_margins_len, right_margins_len))
+
         # Inputs
-        v_sequences = np.reshape(v_sequences, newshape=(self.bs, self.sampling_point_num, 1))
-        a_sequences = np.reshape(a_sequences, newshape=(self.bs, self.sampling_point_num, 1))
+        v_sequences = np.array(v_sequences)[:, :, np.newaxis]
+        a_sequences = np.array(a_sequences)[:, :, np.newaxis]
         input_sequences = np.concatenate([v_sequences, a_sequences], axis=-1)
 
         # Ground Truths
         # TODO: Does gt need to be the results of discretization add up or integral of continued function?
-        # TODO: Avoid the value of gt goes too high -> normalize. Combine with active function
-        # TODO: How does brain represents such activity?
+        # TODO: Use normalization or prob representation?
         gt_sequences = np.cumsum(v_sequences, axis=1) + np.cumsum(np.abs(a_sequences), axis=1)
-
-        # Margin
-        left_margins_len = np.random.randint(low=0, high=self.empty_point_num+1, size=self.bs)
-        right_margins_len = self.empty_point_num - left_margins_len
-        input_sequences = list(map(self._append_empty_margin, input_sequences, left_margins_len, right_margins_len))
-        gt_sequences = list(map(self._append_empty_margin, gt_sequences, left_margins_len, right_margins_len))
+        gt_sequences = gt_sequences * self.delta_time
 
         # Directions
-        directions = np.random.uniform(low=0, high=1, size=(self.bs, 1, 1)) > 0.5
+        directions = np.random.choice([-1, 1], size=(self.bs, 1, 1))
         input_sequences = input_sequences * directions
         gt_sequences = gt_sequences * directions
 
@@ -99,13 +102,12 @@ class DataGenerator(object):
 
     def _sampling_from_derivative_of_normal_distribution_pdf(self, mean=0, sd=1, amplitude=1):
         _sampling_values = self._sampling_from_normal_distribution_pdf(mean, sd, amplitude)
-        sampling_values = (mean - self.sampling_time_point) / (sd * sd) + _sampling_values
+        sampling_values = (mean - self.sampling_time_point) / (sd * sd) * _sampling_values
         return sampling_values
 
-    def _append_empty_margin(self, data, left_margin_len, right_margin_len):
-        channel = int(data.shape[-1])
-        left_margin = np.zeros(shape=[left_margin_len, channel])
-        right_margin = np.zeros([right_margin_len, channel])
+    def _append_zero_margins(self, data, left_margin_len, right_margin_len):
+        left_margin = np.zeros(shape=left_margin_len)
+        right_margin = np.zeros(shape=right_margin_len)
         return np.concatenate([left_margin, data, right_margin], axis=0)
 
 
@@ -113,8 +115,16 @@ if __name__ == "__main__":
     # rv = norm(loc=0, scale=1)
     # print(rv.pdf(0), rv.pdf(1))
     # print(np.arange(-0.75, 0.75 + 0.02, step=0.02))
-
-    data_generator = DataGenerator(4)
+    bs = 16
+    data_generator = DataGenerator(bs)
     inputs, gts = data_generator.next_batch()
-    print(inputs)
-    print(gts)
+    print(inputs.shape, gts.shape)
+    x = range(175)
+
+    for i in range(bs):
+        plt.subplot(4, 4, i+1)
+        plt.plot(x, inputs[i, :, 0])
+        plt.plot(x, inputs[i, :, 1])
+        plt.plot(x, gts[i, :, 0])
+    plt.show()
+
