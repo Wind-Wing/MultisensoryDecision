@@ -10,6 +10,7 @@ class DataGenerator(object):
         # Constraint
         #   Vm <= 30cm/s
         #   argmax(V) - argmax(A) = 200ms
+        # => Distance <= 15cm
 
         # One trail
         #   |--0.5s--|--1.5s--|--0.5s--|
@@ -32,6 +33,9 @@ class DataGenerator(object):
         # self.velocity_sd_sd = 0.02
         self.velocity_mean = self.stimulus_duration / 2.
 
+        self.max_noise_amplitude = self.max_velocity_amplitude
+        # TODO: validate sigma diff between v and a max. And compare the max value ratio
+
         self.sampling_time_point = np.arange(
             -self.velocity_mean,
             self.velocity_mean + self.delta_time,
@@ -39,7 +43,7 @@ class DataGenerator(object):
         self.sampling_point_num = len(self.sampling_time_point)
         self.empty_point_num = self.trail_sampling_point_num - self.sampling_point_num
 
-    def next_batch(self, training_flag):
+    def next_batch(self):
         # stimulus - [bs, sequence, features]
         # feature[0] - Visual information, speed
         # feature[1] - vestibular information, accelerate
@@ -47,7 +51,6 @@ class DataGenerator(object):
         # feature[0] - expected response
         # TODO: save the training samples. Or just create a static data set.
         # TODO: noise signal ratio.
-        # TODO: dose move around necessary for the training process?
         # TODO: do I need give time for the RNN to process
 
         # Params
@@ -55,13 +58,13 @@ class DataGenerator(object):
         amp_v = np.random.uniform(low=self.min_velocity_amplitude, high=self.max_velocity_amplitude, size=self.bs)
 
         # Velocity and accelerate
-        v_sequences = map(self._sampling_from_normal_distribution_pdf, np.zeros(shape=self.bs), sd_v, amp_v)
-        a_sequences = map(self._sampling_from_derivative_of_normal_distribution_pdf, np.zeros(shape=self.bs), sd_v, amp_v)
+        v_sequences = list(map(self._sampling_from_normal_distribution_pdf, np.zeros(shape=self.bs), sd_v, amp_v))
+        a_sequences = list(map(self._sampling_from_derivative_of_normal_distribution_pdf, np.zeros(shape=self.bs), sd_v, amp_v))
 
         # Random Mask
         masks = np.random.choice([0, 1, 2], size=self.bs)
-        v_masks = (masks == 0) or (masks == 2)
-        a_masks = (masks == 1) or (masks == 2)
+        v_masks = np.logical_or((masks == 0), (masks == 2))[:, np.newaxis]
+        a_masks = np.logical_or((masks == 1), (masks == 2))[:, np.newaxis]
         v_sequences = v_sequences * v_masks
         a_sequences = a_sequences * a_masks
 
@@ -73,16 +76,17 @@ class DataGenerator(object):
         # Ground Truths
         # TODO: Does gt need to be the results of discretization add up or integral of continued function?
         # TODO: Avoid the value of gt goes too high -> normalize. Combine with active function
+        # TODO: How does brain represents such activity?
         gt_sequences = np.cumsum(v_sequences, axis=1) + np.cumsum(np.abs(a_sequences), axis=1)
 
         # Margin
-        left_margins_len = np.random.randint(low=0, high=self.empty_point_num+1)
-        right_margins_len = self.trail_sampling_point_num - left_margins_len
-        input_sequences = map(self._append_empty_margin, input_sequences, left_margins_len, right_margins_len)
-        gt_sequences = map(self._append_empty_margin, gt_sequences, left_margins_len, right_margins_len)
+        left_margins_len = np.random.randint(low=0, high=self.empty_point_num+1, size=self.bs)
+        right_margins_len = self.empty_point_num - left_margins_len
+        input_sequences = list(map(self._append_empty_margin, input_sequences, left_margins_len, right_margins_len))
+        gt_sequences = list(map(self._append_empty_margin, gt_sequences, left_margins_len, right_margins_len))
 
         # Directions
-        directions = int(np.random.uniform(low=0, high=1, size=(self.bs, 1, 1)) > 0.5)
+        directions = np.random.uniform(low=0, high=1, size=(self.bs, 1, 1)) > 0.5
         input_sequences = input_sequences * directions
         gt_sequences = gt_sequences * directions
 
@@ -100,12 +104,17 @@ class DataGenerator(object):
 
     def _append_empty_margin(self, data, left_margin_len, right_margin_len):
         channel = int(data.shape[-1])
-        left_margin = np.zeros([left_margin_len, channel])
+        left_margin = np.zeros(shape=[left_margin_len, channel])
         right_margin = np.zeros([right_margin_len, channel])
         return np.concatenate([left_margin, data, right_margin], axis=0)
 
 
 if __name__ == "__main__":
-    rv = norm(loc=0, scale=1)
-    print(rv.pdf(0), rv.pdf(1))
-    print(np.arange(-0.75, 0.75 + 0.02, step=0.02))
+    # rv = norm(loc=0, scale=1)
+    # print(rv.pdf(0), rv.pdf(1))
+    # print(np.arange(-0.75, 0.75 + 0.02, step=0.02))
+
+    data_generator = DataGenerator(4)
+    inputs, gts = data_generator.next_batch()
+    print(inputs)
+    print(gts)
