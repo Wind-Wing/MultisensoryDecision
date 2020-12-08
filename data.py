@@ -14,14 +14,16 @@ class DataGenerator(object):
         # => Distance <= 15cm
 
         # One trail
-        #   |--0.5s--|--1.5s--|--0.5s--|
-        #   |--rest--|--stim--|--rest---|
+        #   |--0.5s--|--1.5s--|--0.5s--|--0.2s--|
+        #   |--rest--|--stim--|--rest--|--delay-|
         # Stim will random slice on the trail time window
-        self.delta_time = 20. / 1000.   # 20ms
-        self.stimulus_duration = 2.5    # 2.5s
+        self.delta_time = 0.02          # 20ms
+        self.stimulus_duration = 1.5    # 1.5s
         self.margin = 0.5               # 0.5s
-        self.trail_duration = self.stimulus_duration + 2 * self.margin       # 2.5s
-        self.trail_sampling_point_num = int(self.trail_duration / self.delta_time)
+        self.v_a_gt_delay = 0.2         # 200ms = delay
+        self.v_a_gt_delay_sampling_num = int(self.v_a_gt_delay / self.delta_time)
+        self.trail_duration = self.stimulus_duration + 2 * self.margin + self.v_a_gt_delay  # 2.7s
+        self.trail_sampling_num = int(self.trail_duration / self.delta_time)
 
         # Params for velocity-time curve
         #   Velocity sd decides the time lag between the peak of velocity and accelerate
@@ -48,7 +50,7 @@ class DataGenerator(object):
             self.velocity_mean + self.delta_time,
             step=self.delta_time)
         self.sampling_point_num = len(self.sampling_time_point)
-        self.empty_point_num = self.trail_sampling_point_num - self.sampling_point_num
+        self.empty_point_num = self.trail_sampling_num - self.sampling_point_num - self.v_a_gt_delay_sampling_num
 
     def next_batch(self):
         # stimulus - [bs, sequence, features]
@@ -57,7 +59,7 @@ class DataGenerator(object):
         # ground truth - [bs, sequence, features]
         # feature[0] - expected response
         # TODO: save the training samples. Or just create a static data set
-        # TODO: do I need give time for the RNN to process
+        # TODO: do I need give time for the RNN to process (add delay for acc info in the gt)
 
         # TODO: Add the delay in the gt
 
@@ -87,7 +89,8 @@ class DataGenerator(object):
         # TODO: Use normalization or prob representation?
         v_sequences = np.array(v_sequences)[:, :, np.newaxis]
         a_sequences = np.array(a_sequences)[:, :, np.newaxis]
-        gt_sequences = np.cumsum(v_sequences, axis=1) + np.cumsum(np.abs(a_sequences), axis=1)
+        offset_v_sequences = np.concatenate([np.zeros([self.bs, self.v_a_gt_delay_sampling_num, 1]), v_sequences[:, self.v_a_gt_delay_sampling_num:, :]], axis=1)
+        gt_sequences = np.cumsum(offset_v_sequences, axis=1) + np.cumsum(np.abs(a_sequences), axis=1)
         gt_sequences = gt_sequences * self.delta_time / (self.max_velocity_amplitude + 2 * self.max_velocity_value)
 
         # Noise
@@ -117,13 +120,13 @@ class DataGenerator(object):
 
     def _append_zero_margins(self, data, left_margin_len, right_margin_len):
         left_margin = np.zeros(shape=left_margin_len)
-        right_margin = np.zeros(shape=right_margin_len)
+        right_margin = np.zeros(shape=right_margin_len + self.v_a_gt_delay_sampling_num)
         return np.concatenate([left_margin, data, right_margin], axis=0)
 
     def _add_noise(self, data, noise_ratio):
         max_value = np.max(data, axis=1)
         max_noise = noise_ratio * max_value
-        noise = np.random.uniform(low=-1 * max_noise, high=max_noise, size=(self.bs, self.trail_sampling_point_num))
+        noise = np.random.uniform(low=-1 * max_noise, high=max_noise, size=(self.bs, self.trail_sampling_num))
         return data + noise[:, :, np.newaxis]
 
 
@@ -135,7 +138,7 @@ if __name__ == "__main__":
     data_generator = DataGenerator(bs)
     inputs, gts = data_generator.next_batch()
     print(inputs.shape, gts.shape)
-    x = range(175)
+    x = range(135)
 
     for i in range(bs):
         plt.subplot(4, 4, i+1)
