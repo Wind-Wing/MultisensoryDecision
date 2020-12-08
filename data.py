@@ -127,6 +127,9 @@ class DataGenerator(object):
         noise = np.random.uniform(low=-1 * max_noise, high=max_noise, size=(self.bs, self.trail_sampling_num))
         return data + noise[:, :, np.newaxis]
 
+    def get_inputs_shape(self):
+        return self.trail_sampling_num, 2
+
 
 if __name__ == "__main__":
     # rv = norm(loc=0, scale=1)
