@@ -14,6 +14,7 @@ class RNN(object):
         # TODO: collect states
         # TODO: Momenta update states
         # TODO: Dropout
+        # TODO: active function?
         self.model = tf.keras.Sequential()
         self.model.add(tf.keras.layers.SimpleRNN(
             units=constants.rnn_units

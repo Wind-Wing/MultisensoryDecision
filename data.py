@@ -61,8 +61,6 @@ class DataGenerator(object):
         # TODO: save the training samples. Or just create a static data set
         # TODO: do I need give time for the RNN to process (add delay for acc info in the gt)
 
-        # TODO: Add the delay in the gt
-
         # Params
         sd_v = np.random.uniform(low=self.min_velocity_sd, high=self.max_velocity_sd, size=self.bs)
         amp_v = np.random.uniform(low=self.min_velocity_amplitude, high=self.max_velocity_amplitude, size=self.bs)
