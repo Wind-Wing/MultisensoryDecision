@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm
@@ -31,11 +32,17 @@ class DataGenerator(object):
         self.max_velocity_sd = 220. / 1000.   # 220ms
         self.min_velocity_sd = 180. / 1000.   # 180ms
         # self.velocity_sd_sd = 0.02
+        _mean_velocity_sd = (self.min_velocity_sd + self.max_velocity_sd) / 2.
+        self.max_velocity_value = self.max_velocity_amplitude / (math.sqrt(2 * math.pi) * _mean_velocity_sd)
         self.velocity_mean = self.stimulus_duration / 2.
 
-        self.max_noise_amplitude = self.max_velocity_amplitude
-        # TODO: validate sigma diff between v and a max. And compare the max value ratio
+        # Params for noise
+        # self.v_a_max_ratio = self.mean_velocity_sd * math.sqrt(math.e)
+        # self.max_velocity_noise_value = self.max_velocity_value / 10.
+        self.max_noise_ratio = 1.
+        self.min_noise_ratio = 0.
 
+        # Sampling
         self.sampling_time_point = np.arange(
             -self.velocity_mean,
             self.velocity_mean + self.delta_time,
@@ -49,12 +56,10 @@ class DataGenerator(object):
         # feature[1] - vestibular information, accelerate
         # ground truth - [bs, sequence, features]
         # feature[0] - expected response
-        # TODO: save the training samples. Or just create a static data set.
+        # TODO: save the training samples. Or just create a static data set
         # TODO: do I need give time for the RNN to process
 
-        # TODO: noise signal ratio.
-        # TODO: Avoid the value of gt goes too high -> normalize. Combine with active function
-
+        # TODO: Add the delay in the gt
 
         # Params
         sd_v = np.random.uniform(low=self.min_velocity_sd, high=self.max_velocity_sd, size=self.bs)
@@ -77,16 +82,21 @@ class DataGenerator(object):
         v_sequences = list(map(self._append_zero_margins, v_sequences, left_margins_len, right_margins_len))
         a_sequences = list(map(self._append_zero_margins, a_sequences, left_margins_len, right_margins_len))
 
-        # Inputs
-        v_sequences = np.array(v_sequences)[:, :, np.newaxis]
-        a_sequences = np.array(a_sequences)[:, :, np.newaxis]
-        input_sequences = np.concatenate([v_sequences, a_sequences], axis=-1)
-
         # Ground Truths
         # TODO: Does gt need to be the results of discretization add up or integral of continued function?
         # TODO: Use normalization or prob representation?
+        v_sequences = np.array(v_sequences)[:, :, np.newaxis]
+        a_sequences = np.array(a_sequences)[:, :, np.newaxis]
         gt_sequences = np.cumsum(v_sequences, axis=1) + np.cumsum(np.abs(a_sequences), axis=1)
-        gt_sequences = gt_sequences * self.delta_time
+        gt_sequences = gt_sequences * self.delta_time / (self.max_velocity_amplitude + 2 * self.max_velocity_value)
+
+        # Noise
+        noise_ratio = np.random.uniform(low=self.min_noise_ratio, high=self.max_noise_ratio, size=(self.bs, 1))
+        v_sequences = self._add_noise(v_sequences, noise_ratio)
+        a_sequences = self._add_noise(a_sequences, noise_ratio)
+
+        # Inputs
+        input_sequences = np.concatenate([v_sequences, a_sequences], axis=-1)
 
         # Directions
         directions = np.random.choice([-1, 1], size=(self.bs, 1, 1))
@@ -110,6 +120,12 @@ class DataGenerator(object):
         right_margin = np.zeros(shape=right_margin_len)
         return np.concatenate([left_margin, data, right_margin], axis=0)
 
+    def _add_noise(self, data, noise_ratio):
+        max_value = np.max(data, axis=1)
+        max_noise = noise_ratio * max_value
+        noise = np.random.uniform(low=-1 * max_noise, high=max_noise, size=(self.bs, self.trail_sampling_point_num))
+        return data + noise[:, :, np.newaxis]
+
 
 if __name__ == "__main__":
     # rv = norm(loc=0, scale=1)
@@ -125,6 +141,6 @@ if __name__ == "__main__":
         plt.subplot(4, 4, i+1)
         plt.plot(x, inputs[i, :, 0])
         plt.plot(x, inputs[i, :, 1])
-        plt.plot(x, gts[i, :, 0])
+        plt.plot(x, gts[i, :, 0] * 75)
     plt.show()
 
