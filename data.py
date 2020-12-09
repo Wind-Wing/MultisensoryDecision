@@ -121,6 +121,10 @@ class DataGenerator(object):
 
         return input_sequences, gt_sequences
 
+    def batch_generator(self, noise_ratio=None, velocity_input_delay=0):
+        while True:
+            yield self.next_batch(noise_ratio, velocity_input_delay)
+
     def _sampling_from_normal_distribution_pdf(self, mean=0, std=1, amplitude=1):
         distribution = norm(loc=mean, scale=std)
         sampling_values = amplitude * distribution.pdf(self.sampling_time_point)
@@ -154,7 +158,7 @@ if __name__ == "__main__":
     # Visualize dataset
     bs = 16
     data_generator = DataGenerator(bs)
-    inputs, gts = data_generator.next_batch()
+    inputs, gts = data_generator.batch_generator().__next__()
     print(inputs.shape, gts.shape)
     x = range(135)
 
