@@ -17,6 +17,7 @@ def train():
 
         with writer.as_default():
             tf.summary.scalar("loss", mean_loss, step=epoch)
+            tf.summary.scalar("learning_rate", model.get_learning_rate(), step=epoch)
         writer.flush()
 
         if epoch % constants.save_epochs == 0:

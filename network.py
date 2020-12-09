@@ -53,11 +53,14 @@ class RNN(object):
         return loss
 
     def save(self, epoch):
-        self.saver.save(self.ckpt_prefix + epoch)
+        self.saver.save(self.ckpt_prefix + str(epoch))
 
     def load(self):
         self.saver.load(tf.train.latest_checkpoint(self.ckpt_prefix))
 
     def evaluate(self):
         pass
+
+    def get_learning_rate(self):
+        return self.model.optimizer.lr
 
