@@ -17,7 +17,7 @@ class RNN(object):
         # TODO: Active function
         # TODO: Regularization
 
-        self.ckpt_prefix = "./ckpts/checkpoint-"
+        self.ckpt_path = "./ckpts/"
         self.log_path = "./logs/"
         self.data_generator = DataGenerator(constants.training_batch_size)
 
@@ -27,29 +27,30 @@ class RNN(object):
             return_sequences=True)(x)
         y = tf.keras.layers.Dense(1)(self.state_sequences)
 
-        self.model = tf.keras.Model(input=x, output=y)
+        self.model = tf.keras.Model(inputs=x, outputs=y)
         self.model.summary()
 
         self.model.compile(
             optimizer=tf.optimizers.Adam(lr=constants.training_batch_size, decay=constants.learning_rate_decay),
-            loss=tf.keras.losses.mse()
+            loss=tf.keras.losses.MeanSquaredError()
         )
 
     def train(self):
+        tensor_board = tf.keras.callbacks.TensorBoard(log_dir=self.log_path, update_freq=100)
+        model_ckpt = tf.keras.callbacks.ModelCheckpoint(filepath=self.ckpt_path)
+
         self.model.fit(
             x=self.data_generator.batch_generator(),
             epochs=constants.num_epochs,
-            verbose=2,
+            steps_per_epoch=constants.steps_per_epoch,
+            verbose=1,
             workers=4,
             use_multiprocessing=True,
-            callbacks=[tf.keras.callbacks.TensorBoard(log_dir=self.log_path)]
+            callbacks=[tensor_board, model_ckpt]
         )
 
-    def save(self, epoch):
-        self.model.save(self.ckpt_prefix + str(epoch))
-
     def load(self):
-        self.model.load(tf.train.latest_checkpoint(self.ckpt_prefix))
+        self.model.load(tf.train.latest_checkpoint(self.ckpt_path))
 
     def evaluate(self):
         pass
