@@ -2,6 +2,7 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm
+import pickle
 
 
 class DataGenerator(object):
@@ -135,6 +136,8 @@ if __name__ == "__main__":
     # rv = norm(loc=0, scale=1)
     # print(rv.pdf(0), rv.pdf(1))
     # print(np.arange(-0.75, 0.75 + 0.02, step=0.02))
+
+    # Visualize dataset
     bs = 16
     data_generator = DataGenerator(bs)
     inputs, gts = data_generator.next_batch()
@@ -147,4 +150,26 @@ if __name__ == "__main__":
         plt.plot(x, inputs[i, :, 1])
         plt.plot(x, gts[i, :, 0] * 75)
     plt.show()
+
+    # Generate test set
+    # bs = 128
+    # data_generator = DataGenerator(bs)
+    # trails = None
+    # for i in range(100):
+    #     _inputs, _gts = data_generator.next_batch()
+    #     trail = np.concatenate([_inputs, _gts], axis=-1)
+    #     if trails is None:
+    #         trails = trail
+    #     else:
+    #         trails = np.concatenate([trails, trail], axis=0)
+    #
+    # with open("./dataset/testset.pickle", "wb") as f:
+    #     pickle.dump(trails, f)
+
+
+
+
+
+
+
 
