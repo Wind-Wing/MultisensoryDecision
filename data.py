@@ -51,15 +51,15 @@ class DataGenerator(object):
             self.velocity_mean + self.delta_time,
             step=self.delta_time)
         self.sampling_point_num = len(self.sampling_time_point)
-        self.empty_point_num = self.trail_sampling_num - self.sampling_point_num - self.v_a_gt_delay_sampling_num
 
-    def next_batch(self):
+    def next_batch(self, noise_ratio=None, velocity_input_delay=0):
+        assert(abs(velocity_input_delay) < 2 * self.margin)
+        # velocity_input_delay - (s)
         # stimulus - [bs, sequence, features]
-        # feature[0] - Visual information, speed
-        # feature[1] - vestibular information, accelerate
+        #   feature[0] - Visual information, speed
+        #   feature[1] - vestibular information, accelerate
         # ground truth - [bs, sequence, features]
-        # feature[0] - expected response
-        # TODO: save the training samples. Or just create a static data set
+        #   feature[0] - expected response
         # TODO: do I need give time for the RNN to process (add delay for acc info in the gt)
 
         # Params
@@ -77,9 +77,20 @@ class DataGenerator(object):
         v_sequences = v_sequences * v_masks
         a_sequences = a_sequences * a_masks
 
+        # Add delay for velocity_input
+        _delay_num = int(abs(velocity_input_delay) / self.delta_time)
+        _zero_seq = np.zeros([self.bs, _delay_num])
+        if velocity_input_delay > 0:
+            v_sequences = np.concatenate([_zero_seq, v_sequences])
+            a_sequences = np.concatenate([a_sequences, _zero_seq])
+        elif velocity_input_delay < 0:
+            v_sequences = np.concatenate([v_sequences, _zero_seq])
+            a_sequences = np.concatenate([_zero_seq, a_sequences])
+
         # Add Margin
-        left_margins_len = np.random.randint(low=0, high=self.empty_point_num+1, size=self.bs)
-        right_margins_len = self.empty_point_num - left_margins_len
+        _empty_point_num = int((self.margin * 2 - velocity_input_delay) / self.delta_time - 1)
+        left_margins_len = np.random.randint(low=0, high=_empty_point_num+1, size=self.bs)
+        right_margins_len = _empty_point_num - left_margins_len
         v_sequences = list(map(self._append_zero_margins, v_sequences, left_margins_len, right_margins_len))
         a_sequences = list(map(self._append_zero_margins, a_sequences, left_margins_len, right_margins_len))
 
@@ -93,7 +104,10 @@ class DataGenerator(object):
         gt_sequences = gt_sequences * self.delta_time / (self.max_velocity_amplitude + 2 * self.max_velocity_value)
 
         # Noise
-        noise_ratio = np.random.uniform(low=self.min_noise_ratio, high=self.max_noise_ratio, size=(self.bs, 1))
+        if noise_ratio is None:
+            noise_ratio = np.random.uniform(low=self.min_noise_ratio, high=self.max_noise_ratio, size=(self.bs, 1))
+        else:
+            noise_ratio = np.ones(shape=(self.bs, 1)) * noise_ratio
         v_sequences = self._add_noise(v_sequences, noise_ratio)
         a_sequences = self._add_noise(a_sequences, noise_ratio)
 
@@ -165,11 +179,3 @@ if __name__ == "__main__":
     #
     # with open("./dataset/testset.pickle", "wb") as f:
     #     pickle.dump(trails, f)
-
-
-
-
-
-
-
-
