@@ -17,17 +17,17 @@ class RNN(object):
         # TODO: Active function
         # TODO: Regularization
 
-        self.ckpt_path = "./ckpts/"
+        self.ckpt_path = "./ckpts/checkpoint-{epoch:d}-" + str(constants.steps_per_epoch) + ".hdf5"
         self.log_path = "./logs/"
         self.data_generator = DataGenerator(constants.training_batch_size)
 
-        x = tf.keras.layers.Input(shape=self.data_generator.get_inputs_shape(), batch_size=constants.training_batch_size)
+        self.x = tf.keras.layers.Input(shape=self.data_generator.get_inputs_shape(), batch_size=constants.training_batch_size)
         self.state_sequences = tf.keras.layers.SimpleRNN(
             units=constants.rnn_units,
-            return_sequences=True)(x)
+            return_sequences=True)(self.x)
         y = tf.keras.layers.Dense(1)(self.state_sequences)
 
-        self.model = tf.keras.Model(inputs=x, outputs=y)
+        self.model = tf.keras.Model(inputs=self.x, outputs=y)
         self.model.summary()
 
         self.model.compile(
@@ -49,9 +49,26 @@ class RNN(object):
             callbacks=[tensor_board, model_ckpt]
         )
 
-    def load(self):
-        self.model.load(tf.train.latest_checkpoint(self.ckpt_path))
+    def load(self, epoch):
+        ckpt_name = self.ckpt_path.format(epoch=epoch)
+        print("Load from " + ckpt_name)
+        print("_________________________________________________________________")
+        self.model.load_weights(ckpt_name)
 
-    def evaluate(self):
-        pass
+    def predict(self, inputs, bs):
+        preds = self.model.predict(
+            x=inputs,
+            batch_size=bs
+        )
+        return preds
+
+    def get_rnn_states(self, inputs, bs):
+        rnn_states_model = tf.keras.Model(self.x, self.state_sequences)
+        rnn_states = rnn_states_model.predict(
+            x=inputs,
+            batch_size=bs
+        )
+        return rnn_states
+
+
 
