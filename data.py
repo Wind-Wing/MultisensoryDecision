@@ -38,6 +38,7 @@ class DataGenerator(object):
         _mean_velocity_sd = (self.min_velocity_sd + self.max_velocity_sd) / 2.
         self.max_velocity_value = self.max_velocity_amplitude / (math.sqrt(2 * math.pi) * _mean_velocity_sd)
         self.velocity_mean = self.stimulus_duration / 2.
+        self.normalization_factor = self.max_velocity_amplitude + 2 * self.max_velocity_value
 
         # Params for noise
         # self.v_a_max_ratio = self.mean_velocity_sd * math.sqrt(math.e)
@@ -101,7 +102,7 @@ class DataGenerator(object):
         a_sequences = np.array(a_sequences)[:, :, np.newaxis]
         offset_v_sequences = np.concatenate([np.zeros([self.bs, self.v_a_gt_delay_sampling_num, 1]), v_sequences[:, self.v_a_gt_delay_sampling_num:, :]], axis=1)
         gt_sequences = np.cumsum(offset_v_sequences, axis=1) + np.cumsum(np.abs(a_sequences), axis=1)
-        gt_sequences = gt_sequences * self.delta_time / (self.max_velocity_amplitude + 2 * self.max_velocity_value)
+        gt_sequences = gt_sequences * self.delta_time / self.normalization_factor
 
         # Noise
         if noise_ratio is None:
