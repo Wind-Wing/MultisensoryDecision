@@ -1,4 +1,5 @@
 import time
+import os
 import tensorflow as tf
 import constants
 from data import DataGenerator
@@ -6,9 +7,6 @@ from data import DataGenerator
 
 class RNN(object):
     def __init__(self):
-        self._build_model()
-
-    def _build_model(self):
         """ Basic RNN: output = new_state = act(W_hi * input + W_hh * state + B) """
         # TODO: Try GRU, LSTM
         # TODO: Add noise
@@ -17,8 +15,9 @@ class RNN(object):
         # TODO: Active function
         # TODO: Regularization
 
-        self.ckpt_path = "./ckpts/checkpoint-{epoch:d}-" + str(constants.steps_per_epoch) + ".hdf5"
-        self.log_path = "./logs/"
+        self.ckpt_dir = "./ckpts/"
+        self.ckpt_name = "ckeckpoint-{epoch:d}.hdf5"
+        self.log_dir = "./logs/"
         self.data_generator = DataGenerator(constants.training_batch_size)
 
         self.x = tf.keras.layers.Input(shape=self.data_generator.get_inputs_shape(), batch_size=constants.training_batch_size)
@@ -35,12 +34,16 @@ class RNN(object):
             loss=tf.keras.losses.MeanSquaredError()
         )
 
-    def train(self):
-        tensor_board = tf.keras.callbacks.TensorBoard(log_dir=self.log_path, update_freq=100)
-        model_ckpt = tf.keras.callbacks.ModelCheckpoint(filepath=self.ckpt_path)
+    def train(self, noise_ratio=None, velocity_input_delay=0):
+        sub_dir = self.get_dir(noise_ratio=noise_ratio, velocity_input_delay=velocity_input_delay)
+        print(sub_dir)
+        os.mkdir(self.ckpt_dir + sub_dir)
+
+        tensor_board = tf.keras.callbacks.TensorBoard(log_dir=self.log_dir + sub_dir, update_freq=100)
+        model_ckpt = tf.keras.callbacks.ModelCheckpoint(filepath=self.ckpt_dir + sub_dir + self.ckpt_name)
 
         self.model.fit(
-            x=self.data_generator.batch_generator(),
+            x=self.data_generator.batch_generator(noise_ratio, velocity_input_delay),
             epochs=constants.num_epochs,
             steps_per_epoch=constants.steps_per_epoch,
             verbose=1,
@@ -49,8 +52,12 @@ class RNN(object):
             callbacks=[tensor_board, model_ckpt]
         )
 
-    def load(self, epoch):
-        ckpt_name = self.ckpt_path.format(epoch=epoch)
+    def load(self, epoch, noise_ratio=None, velocity_input_delay=0):
+        ckpt_path = self.ckpt_dir + self.get_dir(
+            noise_ratio=noise_ratio,
+            velocity_input_delay=velocity_input_delay
+        )
+        ckpt_name = ckpt_path + self.ckpt_name.format(epoch=epoch)
         print("Load from " + ckpt_name)
         print("_________________________________________________________________")
         self.model.load_weights(ckpt_name)
@@ -61,6 +68,15 @@ class RNN(object):
             batch_size=bs
         )
         return preds
+
+    def get_dir(self, noise_ratio=None, velocity_input_delay=0):
+        name = "bs" + str(constants.training_batch_size)
+        if noise_ratio is not None:
+            name += "_noise" + str(noise_ratio)
+        name += "_delay" + str(velocity_input_delay)
+        name += "_steps" + str(constants.steps_per_epoch)
+        name += "/"
+        return name
 
     def get_rnn_states(self, inputs, bs):
         rnn_states_model = tf.keras.Model(self.x, self.state_sequences)
