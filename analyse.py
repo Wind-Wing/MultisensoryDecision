@@ -10,14 +10,14 @@ def visualize(model, bs):
     inputs, gts = data_generator.next_batch(noise_ratio=0., velocity_input_delay=0)
     preds = model.predict(inputs, bs)
 
-    fig_size = int(math.sqrt(bs))
     x = range(int(inputs.shape[1]))
 
     for i in range(bs):
-        plt.subplot(fig_size, fig_size, i+1)
+        plt.subplot(bs, 2, 2*i+1)
         plt.plot(x, inputs[i, :, 0])
         plt.plot(x, inputs[i, :, 1])
-        plt.plot(x, gts[i, :, 0] * data_generator.normalization_factor, linestyle='-')
+        plt.plot(x, gts[i, :, 0] * data_generator.normalization_factor)
+        plt.subplot(bs, 2, 2*i+2)
         plt.plot(x, preds[i, :, 0] * data_generator.normalization_factor)
     plt.show()
 
