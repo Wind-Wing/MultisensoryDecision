@@ -42,16 +42,18 @@ class RNN(object):
 
         tensor_board = tf.keras.callbacks.TensorBoard(log_dir=self.log_dir + sub_dir, update_freq=100)
         model_ckpt = tf.keras.callbacks.ModelCheckpoint(filepath=self.ckpt_dir + sub_dir + self.ckpt_name)
-        pred_visulize = tf.keras.callbacks.LambdaCallback(on_epoch_end= lambda _, __: analyse.visualize(self.model, 4))
+        pred_visualize = tf.keras.callbacks.LambdaCallback(on_epoch_end=lambda _, __: analyse.visualize(self.model, 4))
 
+        print("Start Training")
         self.model.fit(
             x=self.data_generator.batch_generator(noise_ratio, velocity_input_delay),
+            batch_size=constants.training_batch_size,
             epochs=constants.num_epochs,
             steps_per_epoch=constants.steps_per_epoch,
             verbose=1,
             workers=4,
             use_multiprocessing=True,
-            callbacks=[tensor_board, model_ckpt, pred_visulize]
+            callbacks=[tensor_board, model_ckpt, pred_visualize]
         )
 
     def load(self, epoch, noise_ratio=None, delay=0, lr=constants.learning_rate, decay=constants.learning_rate_decay):
