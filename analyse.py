@@ -7,7 +7,7 @@ import time
 import os
 
 
-def visualize(model, bs=constants.training_batch_size):
+def validate(model, bs=constants.training_batch_size):
     data_generator = DataGenerator(batch_size=bs)
     inputs, gts = data_generator.next_batch(noise_ratio=0., velocity_input_delay=0)
     preds = model.predict(inputs, bs)
@@ -54,6 +54,30 @@ def dynamic_system(model, bs):
         ax.legend()
     plt.show()
 
-# TODO: neural type analyse
-# TODO: neural spike time table analyse
-# TODO: neural correlation analyse
+
+def delay_interval():
+    pass
+
+
+def noise_psychophysical_curve():
+    pass
+
+
+def neuron_type():
+    pass
+
+
+def spike_correlation():
+    pass
+
+
+def spike_causal():
+    pass
+
+
+def spike_sequence_diagram():
+    pass
+
+
+def attractor_super_plane():
+    pass
