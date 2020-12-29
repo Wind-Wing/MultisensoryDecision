@@ -31,7 +31,7 @@ class RNN(object):
         self.model.summary()
 
         self.model.compile(
-            optimizer=tf.optimizers.Adam(lr=constants.training_batch_size, decay=constants.learning_rate_decay),
+            optimizer=tf.optimizers.Adam(lr=constants.learning_rate, decay=constants.learning_rate_decay),
             loss=tf.keras.losses.MeanSquaredError()
         )
 
