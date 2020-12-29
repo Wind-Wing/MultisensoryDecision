@@ -3,6 +3,7 @@ import math
 from data import DataGenerator
 from sklearn.decomposition import PCA
 import numpy as np
+import time
 
 
 def visualize(model, bs):
@@ -11,15 +12,19 @@ def visualize(model, bs):
     preds = model.predict(inputs, bs)
 
     x = range(int(inputs.shape[1]))
-
+    col_num = 4
+    bs = min(bs, 8)
     for i in range(bs):
-        plt.subplot(bs, 2, 2*i+1)
+        plt.subplot(bs, col_num, col_num * i + 1)
         plt.plot(x, inputs[i, :, 0])
+        plt.subplot(bs, col_num, col_num * i + 2)
         plt.plot(x, inputs[i, :, 1])
+        plt.subplot(bs, col_num, col_num * i + 3)
         plt.plot(x, gts[i, :, 0] * data_generator.normalization_factor)
-        plt.subplot(bs, 2, 2*i+2)
+        plt.subplot(bs, col_num, col_num * i + 4)
         plt.plot(x, preds[i, :, 0] * data_generator.normalization_factor)
-    plt.show()
+    plt.savefig("./figs/" + str(time.time()) + ".png")
+    plt.clf()
 
 
 def dynamic_system(model, bs):
