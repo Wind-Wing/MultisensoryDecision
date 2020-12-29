@@ -1,29 +1,34 @@
 import matplotlib.pyplot as plt
-import math
+import constants
 from data import DataGenerator
 from sklearn.decomposition import PCA
 import numpy as np
 import time
+import os
 
 
-def visualize(model, bs):
+def visualize(model, bs=constants.training_batch_size):
     data_generator = DataGenerator(batch_size=bs)
     inputs, gts = data_generator.next_batch(noise_ratio=0., velocity_input_delay=0)
     preds = model.predict(inputs, bs)
 
+    fig_dir = "./figs/" + constants.get_dir()
+    if not os.path.exists(fig_dir):
+        os.mkdir(fig_dir)
     x = range(int(inputs.shape[1]))
     col_num = 4
-    bs = min(bs, 8)
-    for i in range(bs):
-        plt.subplot(bs, col_num, col_num * i + 1)
+    row_num = min(bs, 6)
+    row_num = min(bs, 6)
+    for i in range(row_num):
+        plt.subplot(row_num, col_num, col_num * i + 1)
         plt.plot(x, inputs[i, :, 0])
-        plt.subplot(bs, col_num, col_num * i + 2)
+        plt.subplot(row_num, col_num, col_num * i + 2)
         plt.plot(x, inputs[i, :, 1])
-        plt.subplot(bs, col_num, col_num * i + 3)
+        plt.subplot(row_num, col_num, col_num * i + 3)
         plt.plot(x, gts[i, :, 0] * data_generator.normalization_factor)
-        plt.subplot(bs, col_num, col_num * i + 4)
+        plt.subplot(row_num, col_num, col_num * i + 4)
         plt.plot(x, preds[i, :, 0] * data_generator.normalization_factor)
-    plt.savefig("./figs/" + str(time.time()) + ".png")
+    plt.savefig(fig_dir + str(time.time()) + ".png")
     plt.clf()
 
 
