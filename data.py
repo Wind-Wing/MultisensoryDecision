@@ -62,63 +62,89 @@ class DataGenerator(object):
         # ground truth - [bs, sequence, features]
         #   feature[0] - expected response
 
-        # Params
-        sd_v = np.random.uniform(low=self.min_velocity_sd, high=self.max_velocity_sd, size=self.bs)
-        amp_v = np.random.uniform(low=self.min_velocity_amplitude, high=self.max_velocity_amplitude, size=self.bs)
-
-        # Velocity and accelerate
-        v_sequences = list(map(self._sampling_from_normal_distribution_pdf, np.zeros(shape=self.bs), sd_v, amp_v))
-        a_sequences = list(map(self._sampling_from_derivative_of_normal_distribution_pdf, np.zeros(shape=self.bs), sd_v, amp_v))
+        # Get Raw Sequences
+        v_sequences, a_sequences = self.get_raw_inputs()
 
         # Random Mask
-        masks = np.random.choice([0, 1, 2], size=self.bs)
-        v_masks = np.logical_or((masks == 0), (masks == 2))[:, np.newaxis]
-        a_masks = np.logical_or((masks == 1), (masks == 2))[:, np.newaxis]
-        v_sequences = v_sequences * v_masks
-        a_sequences = a_sequences * a_masks
+        v_sequences, a_sequences = self.apply_mask(v_sequences, a_sequences)
 
+        # Apply Delay and Add Margin
+        v_sequences, a_sequences = self.add_delay_and_margin(v_sequences, a_sequences, velocity_input_delay)
+
+        # Ground Truths
+        # TODO: Use normalization or prob representation?
+        gt_sequences = self.get_gts(v_sequences, a_sequences)
+
+        # Noise
+        v_sequences, a_sequences = self.add_noise(a_sequences, v_sequences, noise_ratio)
+
+        # Inputs
+        input_sequences = np.concatenate([v_sequences, a_sequences], axis=-1)
+
+        # Directions
+        input_sequences, gt_sequences = self.apply_direction(input_sequences, gt_sequences)
+
+        return input_sequences, gt_sequences
+
+    def get_gts(self, v_sequences, a_sequences):
+        offset_v_sequences = np.concatenate([np.zeros([self.bs, self.v_a_gt_delay_sampling_num, 1]),
+                                             v_sequences[:, self.v_a_gt_delay_sampling_num:, :]], axis=1)
+        gt_sequences = np.cumsum(offset_v_sequences, axis=1) + np.cumsum(np.abs(a_sequences), axis=1)
+        gt_sequences = gt_sequences * self.delta_time / self.normalization_factor
+        return gt_sequences
+
+    def add_delay_and_margin(self, v_sequences, a_sequences, velocity_input_delay):
         # Add delay for velocity_input
         _delay_num = int(abs(velocity_input_delay) / self.delta_time)
-        _zero_seq = np.zeros([self.bs, _delay_num])
+        _zero_seq = np.zeros([self.bs, _delay_num, 1])
         if velocity_input_delay > 0:
             v_sequences = np.concatenate([_zero_seq, v_sequences])
             a_sequences = np.concatenate([a_sequences, _zero_seq])
         elif velocity_input_delay < 0:
             v_sequences = np.concatenate([v_sequences, _zero_seq])
             a_sequences = np.concatenate([_zero_seq, a_sequences])
-
         # Add Margin
         _empty_point_num = int((self.margin * 2 - velocity_input_delay) / self.delta_time - 1)
-        left_margins_len = np.random.randint(low=0, high=_empty_point_num+1, size=self.bs)
+        left_margins_len = np.random.randint(low=0, high=_empty_point_num + 1, size=self.bs)
         right_margins_len = _empty_point_num - left_margins_len
         v_sequences = list(map(self._append_zero_margins, v_sequences, left_margins_len, right_margins_len))
         a_sequences = list(map(self._append_zero_margins, a_sequences, left_margins_len, right_margins_len))
+        return np.array(v_sequences), np.array(a_sequences)
 
-        # Ground Truths
-        # TODO: Use normalization or prob representation?
+    def apply_mask(self, v_sequences, a_sequences):
+        masks = np.random.choice([0, 1, 2], size=self.bs)
+        v_masks = np.logical_or((masks == 0), (masks == 2))[:, np.newaxis, np.newaxis]
+        a_masks = np.logical_or((masks == 1), (masks == 2))[:, np.newaxis, np.newaxis]
+        v_sequences = v_sequences * v_masks
+        a_sequences = a_sequences * a_masks
+        return v_sequences, a_sequences
+
+    def apply_direction(self, input_sequences, gt_sequences):
+        directions = np.random.choice([-1, 1], size=(self.bs, 1, 1))
+        input_sequences = input_sequences * directions
+        gt_sequences = gt_sequences * directions
+        return input_sequences, gt_sequences
+
+    def get_raw_inputs(self):
+        # Params
+        sd_v = np.random.uniform(low=self.min_velocity_sd, high=self.max_velocity_sd, size=self.bs)
+        amp_v = np.random.uniform(low=self.min_velocity_amplitude, high=self.max_velocity_amplitude, size=self.bs)
+        # Velocity and accelerate
+        v_sequences = list(map(self._sampling_from_normal_distribution_pdf, np.zeros(shape=self.bs), sd_v, amp_v))
+        a_sequences = list(map(self._sampling_from_derivative_of_normal_distribution_pdf, np.zeros(shape=self.bs), sd_v, amp_v))
+
         v_sequences = np.array(v_sequences)[:, :, np.newaxis]
         a_sequences = np.array(a_sequences)[:, :, np.newaxis]
-        offset_v_sequences = np.concatenate([np.zeros([self.bs, self.v_a_gt_delay_sampling_num, 1]), v_sequences[:, self.v_a_gt_delay_sampling_num:, :]], axis=1)
-        gt_sequences = np.cumsum(offset_v_sequences, axis=1) + np.cumsum(np.abs(a_sequences), axis=1)
-        gt_sequences = gt_sequences * self.delta_time / self.normalization_factor
+        return v_sequences, a_sequences
 
-        # Noise
+    def add_noise(self, a_sequences, v_sequences, noise_ratio):
         if noise_ratio is None:
             noise_ratio = np.random.uniform(low=self.min_noise_ratio, high=self.max_noise_ratio, size=(self.bs, 1))
         else:
             noise_ratio = np.ones(shape=(self.bs, 1)) * noise_ratio
         v_sequences = self._add_noise(v_sequences, noise_ratio)
         a_sequences = self._add_noise(a_sequences, noise_ratio)
-
-        # Inputs
-        input_sequences = np.concatenate([v_sequences, a_sequences], axis=-1)
-
-        # Directions
-        directions = np.random.choice([-1, 1], size=(self.bs, 1, 1))
-        input_sequences = input_sequences * directions
-        gt_sequences = gt_sequences * directions
-
-        return input_sequences, gt_sequences
+        return v_sequences, a_sequences
 
     def batch_generator(self, noise_ratio=None, velocity_input_delay=0):
         while True:
@@ -135,8 +161,8 @@ class DataGenerator(object):
         return sampling_values
 
     def _append_zero_margins(self, data, left_margin_len, right_margin_len):
-        left_margin = np.zeros(shape=left_margin_len)
-        right_margin = np.zeros(shape=right_margin_len + self.v_a_gt_delay_sampling_num)
+        left_margin = np.zeros(shape=[left_margin_len, 1])
+        right_margin = np.zeros(shape=[right_margin_len + self.v_a_gt_delay_sampling_num, 1])
         return np.concatenate([left_margin, data, right_margin], axis=0)
 
     def _add_noise(self, data, noise_ratio):
