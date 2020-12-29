@@ -61,7 +61,6 @@ class DataGenerator(object):
         #   feature[1] - vestibular information, accelerate
         # ground truth - [bs, sequence, features]
         #   feature[0] - expected response
-        # TODO: do I need give time for the RNN to process (add delay for acc info in the gt)
 
         # Params
         sd_v = np.random.uniform(low=self.min_velocity_sd, high=self.max_velocity_sd, size=self.bs)
@@ -96,7 +95,6 @@ class DataGenerator(object):
         a_sequences = list(map(self._append_zero_margins, a_sequences, left_margins_len, right_margins_len))
 
         # Ground Truths
-        # TODO: Does gt need to be the results of discretization add up or integral of continued function?
         # TODO: Use normalization or prob representation?
         v_sequences = np.array(v_sequences)[:, :, np.newaxis]
         a_sequences = np.array(a_sequences)[:, :, np.newaxis]

@@ -1,5 +1,3 @@
-# TODO: change into args dict
-# TODO: read from config file and train one by one
 training_batch_size = 128
 learning_rate = 0.01
 learning_rate_decay = 0.98

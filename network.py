@@ -1,4 +1,3 @@
-import time
 import os
 import tensorflow as tf
 import constants
@@ -9,13 +8,6 @@ import analyse
 class RNN(object):
     def __init__(self):
         """ Basic RNN: output = new_state = act(W_hi * input + W_hh * state + B) """
-        # TODO: Try GRU, LSTM
-        # TODO: Add noise
-        # TODO: Momenta update states
-        # TODO: Dropout
-        # TODO: Active function
-        # TODO: Regularization
-
         self.ckpt_dir = "./ckpts/"
         self.ckpt_name = "ckeckpoint-{epoch:d}.hdf5"
         self.log_dir = "./logs/"

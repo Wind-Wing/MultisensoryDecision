@@ -18,7 +18,6 @@ def visualize(model, bs=constants.training_batch_size):
     x = range(int(inputs.shape[1]))
     col_num = 4
     row_num = min(bs, 6)
-    row_num = min(bs, 6)
     for i in range(row_num):
         plt.subplot(row_num, col_num, col_num * i + 1)
         plt.plot(x, inputs[i, :, 0])
@@ -58,7 +57,3 @@ def dynamic_system(model, bs):
 # TODO: neural type analyse
 # TODO: neural spike time table analyse
 # TODO: neural correlation analyse
-
-
-
-
