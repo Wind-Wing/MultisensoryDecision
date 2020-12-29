@@ -13,7 +13,7 @@ def train():
 def analyse():
     # Load model
     model = RNN()
-    model.load(constants.num_epochs, noise_ratio=0.1, delay=0, lr=constants.learning_rate, decay=constants.learning_rate_decay)
+    model.load(constants.num_epochs, "")
 
     # Visualize
     analyse.visualize(model, 4)

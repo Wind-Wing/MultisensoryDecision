@@ -57,7 +57,7 @@ class RNN(object):
 
         tensor_board = LRTensorBoard(log_dir=self.log_dir + sub_dir, update_freq=100)
         model_ckpt = tf.keras.callbacks.ModelCheckpoint(filepath=self.ckpt_dir + sub_dir + self.ckpt_name)
-        pred_visualize = tf.keras.callbacks.LambdaCallback(on_epoch_end=lambda _, __: analyse.visualize(self.model))
+        pred_visualize = tf.keras.callbacks.LambdaCallback(on_epoch_end=lambda _, __: analyse.validate(self.model))
 
         print("Start Training")
         self.model.fit(
@@ -71,13 +71,8 @@ class RNN(object):
             callbacks=[tensor_board, model_ckpt, pred_visualize]
         )
 
-    def load(self, epoch, noise_ratio=None, delay=0, lr=constants.learning_rate, decay=constants.learning_rate_decay):
-        ckpt_path = self.ckpt_dir + constants.get_dir(
-            noise_ratio=noise_ratio,
-            delay=delay,
-            lr=lr,
-            decay=decay
-        )
+    def load(self, epoch, dir_name):
+        ckpt_path = self.ckpt_dir + dir_name
         ckpt_name = ckpt_path + self.ckpt_name.format(epoch=epoch)
         print("Load from " + ckpt_name)
         print("_________________________________________________________________")
@@ -107,4 +102,3 @@ class LRTensorBoard(tf.keras.callbacks.TensorBoard):
         logs = logs or {}
         logs["lr"] = self.model.optimizer.learning_rate(batch)
         super().on_batch_end(batch, logs)
-
