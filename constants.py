@@ -5,9 +5,9 @@ learning_rate = 0.01
 learning_rate_decay = 0.98
 num_epochs = 20
 steps_per_epoch = 1000
-rnn_units = 128
+rnn_units = 128 # 512
 save_epochs = 10
-cell_type = "RNN" # RNN / GRU / LSTM
+cell_type = "LSTM" # RNN / GRU / LSTM
 opt_type = "SGD" # Adam / SGD
 
 
