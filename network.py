@@ -71,7 +71,7 @@ class RNN(object):
             callbacks=[tensor_board, model_ckpt, pred_visualize]
         )
 
-    def load(self, epoch, dir_name):
+    def load(self, dir_name, epoch):
         ckpt_path = self.ckpt_dir + dir_name
         ckpt_name = ckpt_path + self.ckpt_name.format(epoch=epoch)
         print("Load from " + ckpt_name)
