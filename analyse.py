@@ -67,12 +67,35 @@ def dynamic_system(model, bs):
 
 
 def delay_interval():
+    bs = 10000
+    v_delay_list = [-0.2, 0, 0.2]
 
+    model = build_and_load_model(noise_ratio=0.1)
+    data_generator = data.DataGenerator(bs)
+
+    v_sequences, a_sequences = data_generator.get_raw_inputs()
+    v_sequences, a_sequences = data_generator.apply_mask(v_sequences, a_sequences)
+
+    pred_list = []
+    for v_delay in v_delay_list:
+        v_sequences, a_sequences = data_generator.add_delay_and_margin(v_sequences, a_sequences, v_delay)
+        gt_sequences = data_generator.get_gts(v_sequences, a_sequences)
+        v_sequences, a_sequences = data_generator.add_noise(a_sequences, v_sequences, 0)
+        input_sequences = np.concatenate([v_sequences, a_sequences], axis=-1)
+        input_sequences, gt_sequences = data_generator.apply_direction(input_sequences, gt_sequences)
+
+        pred = model.predict(input_sequences, bs)
+        pred_list.append(pred)
+
+    pred_list = np.array(pred_list).transpose((1, 0, 2))[:, :, 0]
+
+
+    visualize(inputs, gts, preds, analyse_dir + str(v_delay) + "-")
 
 
 def noise_psychophysical_curve():
-    bs = 1000
-    noise_ratio_list = np.arange(0, 4, 0.1)
+    bs = 10000
+    noise_ratio_list = np.arange(0, 5, 0.1)
 
     model = build_and_load_model(noise_ratio=0.1)
     data_generator = data.DataGenerator(bs)

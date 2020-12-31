@@ -10,18 +10,5 @@ def train():
     model.train(noise_ratio=0.1, velocity_input_delay=0)
 
 
-def analyse():
-    # Load model
-    model = RNN()
-    model.load(constants.num_epochs, "")
-
-    # Visualize
-    analyse.visualize(model, 4)
-
-    # Dynamic system analyse
-    analyse.dynamic_system(model, 4)
-
-
 if __name__ == "__main__":
     train()
-    # analyse()
