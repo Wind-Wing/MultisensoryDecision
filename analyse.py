@@ -67,30 +67,58 @@ def dynamic_system(model, bs):
 
 
 def delay_interval():
-    bs = 10000
+    bs = 4
     v_delay_list = [-0.2, 0, 0.2]
 
     model = build_and_load_model(noise_ratio=0.1)
     data_generator = data.DataGenerator(bs)
 
-    v_sequences, a_sequences = data_generator.get_raw_inputs()
-    v_sequences, a_sequences = data_generator.apply_mask(v_sequences, a_sequences)
+    v_sequences_raw, a_sequences_raw = data_generator.get_raw_inputs()
+    v_sequences_raw, a_sequences_raw = data_generator.apply_mask(v_sequences_raw, a_sequences_raw)
 
     pred_list = []
+    input_list = []
+    gt_list = []
     for v_delay in v_delay_list:
-        v_sequences, a_sequences = data_generator.add_delay_and_margin(v_sequences, a_sequences, v_delay)
+        delay_sample = v_delay // 0.02 // 2
+        margin = 25 - abs(delay_sample) + delay_sample
+        v_sequences, a_sequences = data_generator.add_delay_and_margin(v_sequences_raw, a_sequences_raw, v_delay, left_margin=margin)
         gt_sequences = data_generator.get_gts(v_sequences, a_sequences)
         v_sequences, a_sequences = data_generator.add_noise(a_sequences, v_sequences, 0)
         input_sequences = np.concatenate([v_sequences, a_sequences], axis=-1)
-        input_sequences, gt_sequences = data_generator.apply_direction(input_sequences, gt_sequences)
 
         pred = model.predict(input_sequences, bs)
-        pred_list.append(pred)
+        pred_list.append(pred[:, :, 0])
+        input_list.append(input_sequences[:, :, :])
+        gt_list.append(gt_sequences[:, :, 0])
 
-    pred_list = np.array(pred_list).transpose((1, 0, 2))[:, :, 0]
+    pred_list = np.array(pred_list).transpose((1, 0, 2))
+    input_list = np.array(input_list).transpose((1, 0, 2, 3))
+    gt_list = np.array(gt_list).transpose((1, 0, 2))
+    x = range(int(pred_list.shape[2]))
 
-
-    visualize(inputs, gts, preds, analyse_dir + str(v_delay) + "-")
+    row_num = 4
+    col_num = 4
+    for i in range(bs):
+        # plt.subplot(row_num, col_num, i + 1)
+        plt.subplot(row_num, col_num, col_num * i + 1)
+        plt.plot(x, input_list[i, 0, :, 0], color="red")
+        plt.plot(x, input_list[i, 1, :, 0], color="black")
+        plt.plot(x, input_list[i, 2, :, 0], color="green")
+        plt.subplot(row_num, col_num, col_num * i + 2)
+        plt.plot(x, input_list[i, 0, :, 1], color="red")
+        plt.plot(x, input_list[i, 1, :, 1], color="black")
+        plt.plot(x, input_list[i, 2, :, 1], color="green")
+        plt.subplot(row_num, col_num, col_num * i + 3)
+        plt.plot(x, gt_list[i, 0, :], color="red")
+        plt.plot(x, gt_list[i, 1, :], color="black")
+        plt.plot(x, gt_list[i, 2, :], color="green")
+        plt.subplot(row_num, col_num, col_num * i + 4)
+        plt.plot(x, pred_list[i, 0, :], color="red")
+        plt.plot(x, pred_list[i, 1, :], color="black")
+        plt.plot(x, pred_list[i, 2, :], color="green")
+    plt.savefig(analyse_dir + "delay_velocity-" + str(time.time()) + ".png")
+    plt.clf()
 
 
 def noise_psychophysical_curve():
@@ -150,4 +178,6 @@ def build_and_load_model(noise_ratio=None, delay=0):
 
 
 if __name__ == "__main__":
-    noise_psychophysical_curve()
+    # noise_psychophysical_curve()
+    for i in range(100):
+        delay_interval()

@@ -93,20 +93,26 @@ class DataGenerator(object):
         gt_sequences = gt_sequences * self.delta_time / self.normalization_factor
         return gt_sequences
 
-    def add_delay_and_margin(self, v_sequences, a_sequences, velocity_input_delay):
+    def add_delay_and_margin(self, v_sequences, a_sequences, velocity_input_delay, left_margin=None):
         # Add delay for velocity_input
         _delay_num = int(abs(velocity_input_delay) / self.delta_time)
         _zero_seq = np.zeros([self.bs, _delay_num, 1])
         if velocity_input_delay > 0:
-            v_sequences = np.concatenate([_zero_seq, v_sequences])
-            a_sequences = np.concatenate([a_sequences, _zero_seq])
+            v_sequences = np.concatenate([_zero_seq, v_sequences], axis=1)
+            a_sequences = np.concatenate([a_sequences, _zero_seq], axis=1)
         elif velocity_input_delay < 0:
-            v_sequences = np.concatenate([v_sequences, _zero_seq])
-            a_sequences = np.concatenate([_zero_seq, a_sequences])
+            v_sequences = np.concatenate([v_sequences, _zero_seq], axis=1)
+            a_sequences = np.concatenate([_zero_seq, a_sequences], axis=1)
+
         # Add Margin
-        _empty_point_num = int((self.margin * 2 - velocity_input_delay) / self.delta_time - 1)
-        left_margins_len = np.random.randint(low=0, high=_empty_point_num + 1, size=self.bs)
+        _empty_point_num = int((self.margin * 2 - abs(velocity_input_delay)) / self.delta_time - 1)
+        if left_margin is None:
+            left_margins_len = np.random.randint(low=0, high=_empty_point_num + 1, size=self.bs)
+        else:
+            left_margins_len = np.ones(shape=self.bs) * left_margin
+            left_margins_len = left_margins_len.astype('int32')
         right_margins_len = _empty_point_num - left_margins_len
+
         v_sequences = list(map(self._append_zero_margins, v_sequences, left_margins_len, right_margins_len))
         a_sequences = list(map(self._append_zero_margins, a_sequences, left_margins_len, right_margins_len))
         return np.array(v_sequences), np.array(a_sequences)
