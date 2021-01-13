@@ -67,56 +67,60 @@ def dynamic_system(model, bs):
 
 
 def delay_interval():
-    bs = 4
+    bs = 1
     v_delay_list = [-0.2, 0, 0.2]
+    color_list = ["red", "black", "green"]
 
     model = build_and_load_model(noise_ratio=0.1)
     data_generator = data.DataGenerator(bs)
 
     v_sequences_raw, a_sequences_raw = data_generator.get_raw_inputs()
-    v_sequences_raw, a_sequences_raw = data_generator.apply_mask(v_sequences_raw, a_sequences_raw)
 
-    pred_list = []
-    input_list = []
-    gt_list = []
+    a_modality_list = []
+    v_modality_list = []
+    mix_modality_list = []
     for v_delay in v_delay_list:
         delay_sample = v_delay // 0.02 // 2
         margin = 25 - abs(delay_sample) + delay_sample
-        v_sequences, a_sequences = data_generator.add_delay_and_margin(v_sequences_raw, a_sequences_raw, v_delay, left_margin=margin)
-        gt_sequences = data_generator.get_gts(v_sequences, a_sequences)
-        v_sequences, a_sequences = data_generator.add_noise(a_sequences, v_sequences, 0)
-        input_sequences = np.concatenate([v_sequences, a_sequences], axis=-1)
+        v, a = data_generator.add_delay_and_margin(v_sequences_raw, a_sequences_raw, v_delay, left_margin=margin)
 
-        pred = model.predict(input_sequences, bs)
-        pred_list.append(pred[:, :, 0])
-        input_list.append(input_sequences[:, :, :])
-        gt_list.append(gt_sequences[:, :, 0])
+        _v = v * 0.
+        _a = a * 1.
+        gt = data_generator.get_gts(_v, _a)
+        inputs = np.concatenate([_v, _a], axis=-1)
+        pred = model.predict(inputs, bs)
+        a_modality_list.append([_v, _a, gt, pred])
 
-    pred_list = np.array(pred_list).transpose((1, 0, 2))
-    input_list = np.array(input_list).transpose((1, 0, 2, 3))
-    gt_list = np.array(gt_list).transpose((1, 0, 2))
-    x = range(int(pred_list.shape[2]))
+        _v = v * 1.
+        _a = a * 0.
+        gt = data_generator.get_gts(_v, _a)
+        inputs = np.concatenate([_v, _a], axis=-1)
+        pred = model.predict(inputs, bs)
+        v_modality_list.append([_v, _a, gt, pred])
 
-    row_num = 4
+        _v = v * 1.
+        _a = a * 1.
+        gt = data_generator.get_gts(_v, _a)
+        inputs = np.concatenate([_v, _a], axis=-1)
+        pred = model.predict(inputs, bs)
+        mix_modality_list.append([_v, _a, gt, pred])
+
+    x = range(int(data_generator.get_inputs_shape()[0]))
+    row_num = 3
     col_num = 4
-    for i in range(bs):
-        # plt.subplot(row_num, col_num, i + 1)
-        plt.subplot(row_num, col_num, col_num * i + 1)
-        plt.plot(x, input_list[i, 0, :, 0], color="red")
-        plt.plot(x, input_list[i, 1, :, 0], color="black")
-        plt.plot(x, input_list[i, 2, :, 0], color="green")
-        plt.subplot(row_num, col_num, col_num * i + 2)
-        plt.plot(x, input_list[i, 0, :, 1], color="red")
-        plt.plot(x, input_list[i, 1, :, 1], color="black")
-        plt.plot(x, input_list[i, 2, :, 1], color="green")
-        plt.subplot(row_num, col_num, col_num * i + 3)
-        plt.plot(x, gt_list[i, 0, :], color="red")
-        plt.plot(x, gt_list[i, 1, :], color="black")
-        plt.plot(x, gt_list[i, 2, :], color="green")
-        plt.subplot(row_num, col_num, col_num * i + 4)
-        plt.plot(x, pred_list[i, 0, :], color="red")
-        plt.plot(x, pred_list[i, 1, :], color="black")
-        plt.plot(x, pred_list[i, 2, :], color="green")
+    res = [v_modality_list, a_modality_list, mix_modality_list]
+    for i in range(len(v_delay_list)):
+        color = color_list[i]
+        for j in range(len(res)):
+            for k in range(col_num):
+                plt.subplot(row_num, col_num, 1 + k + col_num * j)
+                plt.plot(x, np.squeeze(res[j][i][k]), color=color)
+
+        # Super-addition validate
+        plt.subplot(row_num, col_num, row_num * col_num)
+        plt.plot(x, np.squeeze(res[0][i][3] + res[1][i][3]), color=color, linestyle='--')
+
+
     plt.savefig(analyse_dir + "delay_velocity-" + str(time.time()) + ".png")
     plt.clf()
 
@@ -179,5 +183,4 @@ def build_and_load_model(noise_ratio=None, delay=0):
 
 if __name__ == "__main__":
     # noise_psychophysical_curve()
-    for i in range(100):
-        delay_interval()
+    delay_interval()
