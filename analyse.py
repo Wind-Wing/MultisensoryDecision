@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import constants
 from data import DataGenerator
 from sklearn.decomposition import PCA
@@ -109,17 +110,36 @@ def delay_interval():
     row_num = 3
     col_num = 4
     res = [v_modality_list, a_modality_list, mix_modality_list]
+
     for i in range(len(v_delay_list)):
         color = color_list[i]
         for j in range(len(res)):
             for k in range(col_num):
                 plt.subplot(row_num, col_num, 1 + k + col_num * j)
                 plt.plot(x, np.squeeze(res[j][i][k]), color=color)
+        plt.axvline(np.argmax(np.squeeze(res[-1][i][0])), color=color, linestyle='--')
 
         # Super-addition validate
         plt.subplot(row_num, col_num, row_num * col_num)
         plt.plot(x, np.squeeze(res[0][i][3] + res[1][i][3]), color=color, linestyle='--')
 
+    plt.savefig(analyse_dir + "delay_velocity-" + str(time.time()) + ".png")
+    plt.clf()
+
+    # big picture
+    for i in range(len(v_delay_list)):
+        color = color_list[i]
+        plt.plot(x, np.squeeze(res[-1][i][-1]), color=color)
+
+        plt.axvline(np.argmax(np.squeeze(res[-1][i][0])), color=color, linestyle='--')
+        plt.plot(x, np.squeeze(res[0][i][3] + res[1][i][3]), color=color, linestyle='--')
+
+        if v_delay_list[i] == 0.:
+            plt.plot(x, np.squeeze(res[-1][i][1]) / data_generator.normalization_factor, color=color, linestyle='dotted')
+
+    plt.axhline(0, color='black')
+    patches = [mpatches.Patch(color=c, label=d) for (c, d) in zip(color_list, v_delay_list)]
+    plt.legend(handles=patches)
 
     plt.savefig(analyse_dir + "delay_velocity-" + str(time.time()) + ".png")
     plt.clf()
