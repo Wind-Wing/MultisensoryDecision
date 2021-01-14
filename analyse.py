@@ -81,9 +81,11 @@ def delay_interval():
     v_modality_list = []
     mix_modality_list = []
     for v_delay in v_delay_list:
-        delay_sample = v_delay // 0.02 // 2
-        margin = 25 - abs(delay_sample) + delay_sample
-        v, a = data_generator.add_delay_and_margin(v_sequences_raw, a_sequences_raw, v_delay, left_margin=margin)
+        if v_delay < 0:
+            left_margin = (data_generator.margin + v_delay) // data_generator.delta_time
+        else:
+            left_margin = data_generator.margin // data_generator.delta_time
+        v, a = data_generator.add_delay_and_margin(v_sequences_raw, a_sequences_raw, v_delay, left_margin=left_margin)
 
         _v = v * 0.
         _a = a * 1.
