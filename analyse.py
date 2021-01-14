@@ -39,7 +39,7 @@ def visualize(inputs, gts, preds, prefix):
         plt.plot(x, gts[i, :, 0])
         plt.subplot(row_num, col_num, col_num * i + 4)
         plt.plot(x, preds[i, :, 0])
-    plt.savefig(prefix + str(time.time()) + ".png")
+    plt.savefig(analyse_dir + prefix + str(time.time()) + ".png")
     plt.clf()
 
 
@@ -143,11 +143,11 @@ def delay_interval():
     patches = [mpatches.Patch(color=c, label=d) for (c, d) in zip(color_list, v_delay_list)]
     plt.legend(handles=patches)
 
-    plt.savefig(analyse_dir + "delay_velocity-" + str(time.time()) + ".png")
+    plt.savefig(analyse_dir + constants.cell_type + "-delay_velocity-" + str(time.time()) + ".png")
     plt.clf()
 
 
-def noise_psychophysical_curve():
+def noise_accuracy_curve():
     bs = 10000
     noise_ratio_list = np.arange(0, 5, 0.1)
 
@@ -162,8 +162,7 @@ def noise_psychophysical_curve():
         # visualize(inputs, gts, preds, analyse_dir + str(noise_ratio) + "-")
 
         gt_direction = gts[:, -1, 0] > 0
-        avg_direction = np.mean(preds[:, :, 0], axis=1) > 0.
-        vote_direction = np.mean(preds[:, :, 0] > 0, axis=1) > 0.5
+        avg_direction, vote_direction = make_decisions(preds)
         avg_direction_acc = np.mean(np.equal(gt_direction, avg_direction))
         vote_direction_acc = np.mean(np.equal(gt_direction, vote_direction))
         avg_res.append(avg_direction_acc)
@@ -171,8 +170,84 @@ def noise_psychophysical_curve():
 
     plt.plot(noise_ratio_list, avg_res, color="red")
     plt.plot(noise_ratio_list, vote_res, color="green")
-    plt.savefig(analyse_dir + "noise_psychophysical_curve-" + str(time.time()) + ".png")
+    plt.savefig(analyse_dir + "noise_accuracy_curve-" + str(time.time()) + ".png")
     plt.clf()
+
+
+# Returns: True - Positive, False - Negative
+def make_decisions(preds):
+    avg_directions = np.mean(preds[:, :, 0], axis=1) > 0.
+    vote_directions = np.mean(preds[:, :, 0] > 0, axis=1) > 0.5
+    return avg_directions, vote_directions
+
+
+def direction_discrimination_psychophysical_curve():
+    bs = 1000
+    data_generator = data.DataGenerator(bs)
+    model = build_and_load_model(noise_ratio=0.1)
+
+    step = 0.1
+    v_amp_list = np.arange(-1, 1 + step, step)
+    for noise in np.arange(0, 4, 1):
+        a_modality_list = []
+        v_modality_list = []
+        mix_modality_list = []
+        for v_amp in v_amp_list:
+            print("velocity amplitude: " + str(v_amp))
+            if v_amp >= 0:
+                direction = 1
+            else:
+                direction = -1
+                v_amp = abs(v_amp)
+
+            v, a = data_generator.get_raw_inputs(velocity_amplitude=v_amp)
+            # v, a = data_generator.apply_mask(v, a)
+            v, a = data_generator.add_delay_and_margin(v, a, velocity_input_delay=0)
+            gts = data_generator.get_gts(v, a)
+
+            _noise = np.random.uniform(low=-1 * noise, high=noise, size=(bs, data_generator.trail_sampling_num))
+            a = a + _noise[:, :, np.newaxis]
+            _noise = np.random.uniform(low=-1 * noise, high=noise, size=(bs, data_generator.trail_sampling_num))
+            v = v + _noise[:, :, np.newaxis]
+
+            def get_directions(v, a):
+                inputs = np.concatenate([v, a], axis=-1) * direction
+                preds = model.predict(inputs, bs)
+                avg_directions, vote_directions = make_decisions(preds)
+                return avg_directions
+
+            _v = v * 1
+            _a = a * 0
+            v_modality_list.append(np.mean(get_directions(_v, _a)))
+
+            _v = v * 0
+            _a = a * 1
+            a_modality_list.append(np.mean(get_directions(_v, _a)))
+
+            _v = v * 1
+            _a = a * 1
+            mix_modality_list.append(np.mean(get_directions(_v, _a)))
+
+        plt.plot(v_amp_list, mix_modality_list, color="black")
+        plt.plot(v_amp_list, v_modality_list, color="green")
+        plt.plot(v_amp_list, a_modality_list, color="red")
+        fig_path = analyse_dir + \
+                   constants.cell_type + \
+                   "-direction_discrimination_psychophysical_curve" \
+                   "-noise" + str(noise) + \
+                   "-" + str(time.time()) + ".png"
+        plt.savefig(fig_path)
+        plt.clf()
+
+
+def integral_model_verification():
+    bs = 1
+    data_generator = data.DataGenerator(bs)
+    model = build_and_load_model(noise_ratio=0.1)
+    for level in range(0, 10, 1):
+        inputs = np.ones(shape=(bs, data_generator.trail_sampling_num, 2)) * level
+        preds = model.predict(inputs, 1) * data_generator.normalization_factor
+        visualize(inputs, inputs, preds, constants.cell_type + "integral")
 
 
 def neuron_type():
@@ -205,4 +280,6 @@ def build_and_load_model(noise_ratio=None, delay=0):
 
 if __name__ == "__main__":
     # noise_psychophysical_curve()
-    delay_interval()
+    # delay_interval()
+    integral_model_verification()
+    # direction_discrimination_psychophysical_curve()

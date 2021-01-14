@@ -125,16 +125,23 @@ class DataGenerator(object):
         a_sequences = a_sequences * a_masks
         return v_sequences, a_sequences
 
-    def apply_direction(self, input_sequences, gt_sequences):
-        directions = np.random.choice([-1, 1], size=(self.bs, 1, 1))
+    def apply_direction(self, input_sequences, gt_sequences, direction=None):
+        if direction is None:
+            directions = np.random.choice([-1, 1], size=(self.bs, 1, 1))
+        else:
+            assert direction in (-1, 1)
+            directions = np.ones(shape=(self.bs, 1, 1)) * direction
         input_sequences = input_sequences * directions
         gt_sequences = gt_sequences * directions
         return input_sequences, gt_sequences
 
-    def get_raw_inputs(self):
+    def get_raw_inputs(self, velocity_amplitude=None):
         # Params
+        if velocity_amplitude is None:
+            amp_v = np.random.uniform(low=self.min_velocity_amplitude, high=self.max_velocity_amplitude, size=self.bs)
+        else:
+            amp_v = np.ones(shape=self.bs) * velocity_amplitude
         sd_v = np.random.uniform(low=self.min_velocity_sd, high=self.max_velocity_sd, size=self.bs)
-        amp_v = np.random.uniform(low=self.min_velocity_amplitude, high=self.max_velocity_amplitude, size=self.bs)
         # Velocity and accelerate
         v_sequences = list(map(self._sampling_from_normal_distribution_pdf, np.zeros(shape=self.bs), sd_v, amp_v))
         a_sequences = list(map(self._sampling_from_derivative_of_normal_distribution_pdf, np.zeros(shape=self.bs), sd_v, amp_v))
