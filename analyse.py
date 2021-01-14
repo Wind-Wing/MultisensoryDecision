@@ -69,8 +69,8 @@ def dynamic_system(model, bs):
 
 def delay_interval():
     bs = 1
-    v_delay_list = [-0.2, 0, 0.2]
-    color_list = ["red", "black", "green"]
+    v_delay_list = [-0.4, -0.2, 0, 0.2]
+    color_list = ["blue", "red", "black", "green"]
 
     model = build_and_load_model(noise_ratio=0.1)
     data_generator = data.DataGenerator(bs)
