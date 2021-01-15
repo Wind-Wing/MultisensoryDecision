@@ -247,7 +247,7 @@ def integral_model_verification():
     bs = 1
     data_generator = data.DataGenerator(bs)
     model = build_and_load_model()
-    for level in range(0, 10, 1):
+    for level in range(-10, 11, 1):
         inputs = np.ones(shape=(bs, data_generator.trail_sampling_num, 2)) * level
         preds = model.predict(inputs, 1) * data_generator.normalization_factor
         visualize(inputs, inputs, preds, constants.cell_type + "integral")
