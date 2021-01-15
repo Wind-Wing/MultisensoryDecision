@@ -39,7 +39,7 @@ def visualize(inputs, gts, preds, prefix):
         plt.plot(x, gts[i, :, 0])
         plt.subplot(row_num, col_num, col_num * i + 4)
         plt.plot(x, preds[i, :, 0])
-    plt.savefig(analyse_dir + prefix + str(time.time()) + ".png")
+    plt.savefig(prefix + str(time.time()) + ".png")
     plt.clf()
 
 
@@ -72,7 +72,7 @@ def delay_interval(velocity_amplitude=None, direction=1):
     v_delay_list = [-0.4, -0.2, 0, 0.2]
     color_list = ["blue", "red", "black", "green"]
 
-    model = build_and_load_model(noise_ratio=0.1)
+    model = build_and_load_model()
     data_generator = data.DataGenerator(bs)
 
     v_sequences_raw, a_sequences_raw = data_generator.get_raw_inputs(velocity_amplitude)
@@ -154,7 +154,7 @@ def noise_accuracy_curve():
     bs = 10000
     noise_ratio_list = np.arange(0, 5, 0.1)
 
-    model = build_and_load_model(noise_ratio=0.1)
+    model = build_and_load_model()
     data_generator = data.DataGenerator(bs)
     avg_res = []
     vote_res = []
@@ -187,7 +187,7 @@ def make_decisions(preds):
 def direction_discrimination_psychophysical_curve():
     bs = 1000
     data_generator = data.DataGenerator(bs)
-    model = build_and_load_model(noise_ratio=0.1)
+    model = build_and_load_model()
 
     step = 0.1
     v_amp_list = np.arange(-1, 1 + step, step)
@@ -246,7 +246,7 @@ def direction_discrimination_psychophysical_curve():
 def integral_model_verification():
     bs = 1
     data_generator = data.DataGenerator(bs)
-    model = build_and_load_model(noise_ratio=0.1)
+    model = build_and_load_model()
     for level in range(0, 10, 1):
         inputs = np.ones(shape=(bs, data_generator.trail_sampling_num, 2)) * level
         preds = model.predict(inputs, 1) * data_generator.normalization_factor
@@ -274,7 +274,8 @@ def attractor_super_plane():
     pass
 
 
-def build_and_load_model(noise_ratio=None, delay=0):
+def build_and_load_model(delay=0):
+    noise_ratio = 0.1
     ckpt_dir = constants.get_dir(noise_ratio, delay)
     model = network.RNN()
     model.load(ckpt_dir, constants.num_epochs)
@@ -288,5 +289,5 @@ if __name__ == "__main__":
         for direction in (-1, 1):
             delay_interval(velocity_amplitude=v_amp, direction=direction)
 
-    # integral_model_verification()
-    # direction_discrimination_psychophysical_curve()
+    integral_model_verification()
+    direction_discrimination_psychophysical_curve()
