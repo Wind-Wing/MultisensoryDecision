@@ -67,7 +67,7 @@ def dynamic_system(model, bs):
     plt.show()
 
 
-def delay_interval():
+def delay_interval(velocity_amplitude=None, direction=1):
     bs = 1
     v_delay_list = [-0.4, -0.2, 0, 0.2]
     color_list = ["blue", "red", "black", "green"]
@@ -75,7 +75,7 @@ def delay_interval():
     model = build_and_load_model(noise_ratio=0.1)
     data_generator = data.DataGenerator(bs)
 
-    v_sequences_raw, a_sequences_raw = data_generator.get_raw_inputs()
+    v_sequences_raw, a_sequences_raw = data_generator.get_raw_inputs(velocity_amplitude)
 
     a_modality_list = []
     v_modality_list = []
@@ -87,22 +87,22 @@ def delay_interval():
             left_margin = data_generator.margin // data_generator.delta_time
         v, a = data_generator.add_delay_and_margin(v_sequences_raw, a_sequences_raw, v_delay, left_margin=left_margin)
 
-        _v = v * 0.
-        _a = a * 1.
+        _v = v * 0. * direction
+        _a = a * 1. * direction
         gt = data_generator.get_gts(_v, _a)
         inputs = np.concatenate([_v, _a], axis=-1)
         pred = model.predict(inputs, bs)
         a_modality_list.append([_v, _a, gt, pred])
 
-        _v = v * 1.
-        _a = a * 0.
+        _v = v * 1. * direction
+        _a = a * 0. * direction
         gt = data_generator.get_gts(_v, _a)
         inputs = np.concatenate([_v, _a], axis=-1)
         pred = model.predict(inputs, bs)
         v_modality_list.append([_v, _a, gt, pred])
 
-        _v = v * 1.
-        _a = a * 1.
+        _v = v * 1. * direction
+        _a = a * 1. * direction
         gt = data_generator.get_gts(_v, _a)
         inputs = np.concatenate([_v, _a], axis=-1)
         pred = model.predict(inputs, bs)
@@ -119,13 +119,16 @@ def delay_interval():
             for k in range(col_num):
                 plt.subplot(row_num, col_num, 1 + k + col_num * j)
                 plt.plot(x, np.squeeze(res[j][i][k]), color=color)
-        plt.axvline(np.argmax(np.squeeze(res[-1][i][0])), color=color, linestyle='--')
+        if direction > 0:
+            plt.axvline(np.argmax(np.squeeze(res[-1][i][0])), color=color, linestyle='--')
+        else:
+            plt.axvline(np.argmin(np.squeeze(res[-1][i][0])), color=color, linestyle='--')
 
         # Super-addition validate
         plt.subplot(row_num, col_num, row_num * col_num)
         plt.plot(x, np.squeeze(res[0][i][3] + res[1][i][3]), color=color, linestyle='--')
 
-    plt.savefig(analyse_dir + "delay_velocity-" + str(time.time()) + ".png")
+    plt.savefig(analyse_dir + "delay_velocity" + str(time.time()) + ".png")
     plt.clf()
 
     # big picture
@@ -143,7 +146,7 @@ def delay_interval():
     patches = [mpatches.Patch(color=c, label=d) for (c, d) in zip(color_list, v_delay_list)]
     plt.legend(handles=patches)
 
-    plt.savefig(analyse_dir + constants.cell_type + "-delay_velocity-" + str(time.time()) + ".png")
+    plt.savefig(analyse_dir + constants.cell_type + "-delay_velocity-v_amp" + str(v_amp) + "direction" + str(direction) + "-" + str(time.time()) + ".png")
     plt.clf()
 
 
@@ -280,6 +283,10 @@ def build_and_load_model(noise_ratio=None, delay=0):
 
 if __name__ == "__main__":
     # noise_psychophysical_curve()
-    # delay_interval()
-    integral_model_verification()
+
+    for v_amp in range(0, 16):
+        for direction in (-1, 1):
+            delay_interval(velocity_amplitude=v_amp, direction=direction)
+
+    # integral_model_verification()
     # direction_discrimination_psychophysical_curve()
