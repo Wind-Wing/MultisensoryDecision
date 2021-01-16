@@ -3,4 +3,4 @@ __pycache__
 logs
 ckpts
 figs
-analyse_results
+analyse_results*
