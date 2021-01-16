@@ -7,9 +7,10 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
-from scipy.integrate import quad
+import scipy.integrate
+import scipy.optimize
+import scipy.stats
 from sklearn.decomposition import PCA
-from scipy.optimize import curve_fit
 from collections.abc import Iterable
 
 
@@ -189,13 +190,14 @@ def make_decisions(preds):
 
 
 def direction_discrimination_psychophysical_curve():
-    bs = 1000
-    data_generator = data.DataGenerator(bs)
+    bs = 10000
+    data_generator = DataGenerator(bs)
     model = build_and_load_model()
 
-    step = 0.1
-    v_amp_list = np.arange(-1, 1 + step, step)
-    for noise in np.arange(0, 4, 1):
+    step = 1
+    v_amp_list = np.arange(-15, 15 + step, step)
+    for noise in np.arange(12, 20, 1):
+        print("noise: " + str(noise))
         a_modality_list = []
         v_modality_list = []
         mix_modality_list = []
@@ -212,15 +214,23 @@ def direction_discrimination_psychophysical_curve():
             v, a = data_generator.add_delay_and_margin(v, a, velocity_input_delay=0)
             gts = data_generator.get_gts(v, a)
 
-            _noise = np.random.uniform(low=-1 * noise, high=noise, size=(bs, data_generator.trail_sampling_num))
-            a = a + _noise[:, :, np.newaxis]
-            _noise = np.random.uniform(low=-1 * noise, high=noise, size=(bs, data_generator.trail_sampling_num))
-            v = v + _noise[:, :, np.newaxis]
+            a = a + np.random.normal(loc=0, scale=np.sqrt(noise), size=(bs, data_generator.trail_sampling_num, 1))
+            # a = a + _noise[:, :, np.newaxis]
+            v = v + np.random.normal(loc=0, scale=np.sqrt(noise), size=(bs, data_generator.trail_sampling_num, 1))
+            # v = v + _noise[:, :, np.newaxis]
 
             def get_directions(v, a):
                 inputs = np.concatenate([v, a], axis=-1) * direction
                 preds = model.predict(inputs, bs)
                 avg_directions, vote_directions = make_decisions(preds)
+
+                # if np.sum(a) == 0:
+                #     fig_path = analyse_dir + \
+                #                constants.cell_type + \
+                #                "-direction_discrimination_psychophysical_curve" \
+                #                "-noise" + str(noise)
+                #     visualize(inputs, inputs, preds, fig_path)
+
                 return avg_directions
 
             _v = v * 1
@@ -235,6 +245,8 @@ def direction_discrimination_psychophysical_curve():
             _a = a * 1
             mix_modality_list.append(np.mean(get_directions(_v, _a)))
 
+        fit_normal_cdf(v_amp_list, mix_modality_list)
+
         plt.plot(v_amp_list, mix_modality_list, color="black")
         plt.plot(v_amp_list, v_modality_list, color="green")
         plt.plot(v_amp_list, a_modality_list, color="red")
@@ -245,6 +257,15 @@ def direction_discrimination_psychophysical_curve():
                    "-" + str(time.time()) + ".png"
         plt.savefig(fig_path)
         plt.clf()
+
+        mix_miu, mix_sigma = fit_normal_cdf(v_amp_list, mix_modality_list)
+        v_miu, v_sigma = fit_normal_cdf(v_amp_list, v_modality_list)
+        a_miu, a_sigma = fit_normal_cdf(v_amp_list, a_modality_list)
+        print("mix - %f - %f, v - %f - %f, a - %f - %f, v+a - %f "
+              % (mix_sigma, 1. / mix_sigma ** 2,
+                 v_sigma, 1. / v_sigma ** 2,
+                 a_sigma, 1. / a_sigma ** 2,
+                 1. / v_sigma ** 2 + 1. / a_sigma ** 2))
 
 
 def integral_model_verification():
@@ -266,6 +287,18 @@ def integral_model_verification():
         inputs = np.concatenate([v, a], axis=-1)
         preds = model.predict(inputs, 1) * data_generator.normalization_factor
         visualize(inputs, inputs, preds, constants.cell_type + "-integral-" + "level" + str(level) + "-mix")
+
+
+def fit_normal_cdf(x_data, y_data):
+    def normal_cdf(x, mu, sigma):
+        return scipy.stats.norm.cdf(x, loc=mu, scale=sigma)
+
+    plt.plot(x_data, y_data)
+    popt, pcov = scipy.optimize.curve_fit(normal_cdf, x_data, y_data)
+    plt.plot(x_data, normal_cdf(x_data, *popt))
+    # plt.show()
+    plt.clf()
+    return popt[0], popt[1]
 
 
 def neuron_type():
