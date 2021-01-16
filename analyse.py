@@ -1,13 +1,17 @@
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import constants
+import network
 from data import DataGenerator
-from sklearn.decomposition import PCA
-import numpy as np
+
 import time
 import os
-import network
-import data
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import numpy as np
+from scipy.integrate import quad
+from sklearn.decomposition import PCA
+from scipy.optimize import curve_fit
+from collections.abc import Iterable
+
 
 noise_ratio = 0
 analyse_dir = "./analyse_results/" + constants.get_dir(noise_ratio)
@@ -73,7 +77,7 @@ def delay_interval(velocity_amplitude=None, direction=1):
     color_list = ["blue", "red", "black", "green"]
 
     model = build_and_load_model()
-    data_generator = data.DataGenerator(bs)
+    data_generator = DataGenerator(bs)
 
     v_sequences_raw, a_sequences_raw = data_generator.get_raw_inputs(velocity_amplitude)
 
@@ -146,7 +150,7 @@ def delay_interval(velocity_amplitude=None, direction=1):
     patches = [mpatches.Patch(color=c, label=d) for (c, d) in zip(color_list, v_delay_list)]
     plt.legend(handles=patches)
 
-    plt.savefig(analyse_dir + constants.cell_type + "-delay_velocity-v_amp" + str(v_amp) + "direction" + str(direction) + "-" + str(time.time()) + ".png")
+    plt.savefig(analyse_dir + constants.cell_type + "-delay_velocity-v_amp" + str(velocity_amplitude) + "direction" + str(direction) + "-" + str(time.time()) + ".png")
     plt.clf()
 
 
@@ -155,7 +159,7 @@ def noise_accuracy_curve():
     noise_ratio_list = np.arange(0, 5, 0.1)
 
     model = build_and_load_model()
-    data_generator = data.DataGenerator(bs)
+    data_generator = DataGenerator(bs)
     avg_res = []
     vote_res = []
     for noise_ratio in noise_ratio_list:
@@ -245,7 +249,7 @@ def direction_discrimination_psychophysical_curve():
 
 def integral_model_verification():
     bs = 1
-    data_generator = data.DataGenerator(bs)
+    data_generator = DataGenerator(bs)
     model = build_and_load_model()
     for level in range(-10, 11, 1):
         v = np.ones(shape=(bs, data_generator.trail_sampling_num, 1)) * level
@@ -294,10 +298,8 @@ def build_and_load_model(delay=0):
 
 if __name__ == "__main__":
     # noise_psychophysical_curve()
-
-    for v_amp in range(0, 16):
-        for direction in (-1, 1):
-            delay_interval(velocity_amplitude=v_amp, direction=direction)
-
-    integral_model_verification()
+    # for v_amp in range(0, 16):
+    #     for direction in (-1, 1):
+    #         delay_interval(velocity_amplitude=v_amp, direction=direction)
+    # integral_model_verification()
     direction_discrimination_psychophysical_curve()
