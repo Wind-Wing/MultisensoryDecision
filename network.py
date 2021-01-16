@@ -25,8 +25,9 @@ class RNN(object):
         self.x = tf.keras.layers.Input(shape=self.data_generator.get_inputs_shape(), batch_size=constants.training_batch_size)
         self.state_sequences = self.cell_type(
             units=constants.rnn_units,
-            return_sequences=True)(self.x)
-        y = tf.keras.layers.Dense(1)(self.state_sequences)
+            return_sequences=True,
+            use_bias=False)(self.x)
+        y = tf.keras.layers.Dense(1, use_bias=False)(self.state_sequences)
 
         self.model = tf.keras.Model(inputs=self.x, outputs=y)
         self.model.summary()
