@@ -248,9 +248,20 @@ def integral_model_verification():
     data_generator = data.DataGenerator(bs)
     model = build_and_load_model()
     for level in range(-10, 11, 1):
-        inputs = np.ones(shape=(bs, data_generator.trail_sampling_num, 2)) * level
+        v = np.ones(shape=(bs, data_generator.trail_sampling_num, 1)) * level
+        a = np.ones(shape=(bs, data_generator.trail_sampling_num, 1)) * level
+
+        inputs = np.concatenate([v, a * 0], axis=-1)
         preds = model.predict(inputs, 1) * data_generator.normalization_factor
-        visualize(inputs, inputs, preds, constants.cell_type + "integral")
+        visualize(inputs, inputs, preds, constants.cell_type + "-integral-" + "level" + str(level) + "-v")
+
+        inputs = np.concatenate([v * 0, a], axis=-1)
+        preds = model.predict(inputs, 1) * data_generator.normalization_factor
+        visualize(inputs, inputs, preds, constants.cell_type + "-integral-" + "level" + str(level) + "-a")
+
+        inputs = np.concatenate([v, a], axis=-1)
+        preds = model.predict(inputs, 1) * data_generator.normalization_factor
+        visualize(inputs, inputs, preds, constants.cell_type + "-integral-" + "level" + str(level) + "-mix")
 
 
 def neuron_type():
