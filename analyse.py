@@ -9,16 +9,16 @@ import os
 import network
 import data
 
+noise_ratio = 0
+analyse_dir = "./analyse_results/" + constants.get_dir(noise_ratio)
 
-analyse_dir = "./analyse_results/"
 
-
-def validate(model, bs=constants.training_batch_size):
+def validate(model, noise_ratio=None, bs=constants.training_batch_size):
     data_generator = DataGenerator(batch_size=bs)
     inputs, gts = data_generator.next_batch(noise_ratio=0., velocity_input_delay=0)
     preds = model.predict(inputs, bs)
 
-    fig_dir = "./figs/" + constants.get_dir()
+    fig_dir = "./figs/" + constants.get_dir(noise_ratio)
     if not os.path.exists(fig_dir):
         os.mkdir(fig_dir)
 
@@ -275,7 +275,6 @@ def attractor_super_plane():
 
 
 def build_and_load_model(delay=0):
-    noise_ratio = 0.1
     ckpt_dir = constants.get_dir(noise_ratio, delay)
     model = network.RNN()
     model.load(ckpt_dir, constants.num_epochs)

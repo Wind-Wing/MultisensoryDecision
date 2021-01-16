@@ -57,7 +57,7 @@ class RNN(object):
 
         tensor_board = LRTensorBoard(log_dir=self.log_dir + sub_dir, update_freq=100)
         model_ckpt = tf.keras.callbacks.ModelCheckpoint(filepath=self.ckpt_dir + sub_dir + self.ckpt_name)
-        pred_visualize = tf.keras.callbacks.LambdaCallback(on_epoch_end=lambda _, __: analyse.validate(self.model))
+        pred_visualize = tf.keras.callbacks.LambdaCallback(on_epoch_end=lambda _, __: analyse.validate(self.model, noise_ratio))
 
         print("Start Training")
         self.model.fit(
