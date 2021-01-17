@@ -76,6 +76,7 @@ def delay_interval(velocity_amplitude=None, direction=1):
     bs = 1
     v_delay_list = [-0.4, -0.2, 0, 0.2]
     color_list = ["blue", "red", "black", "green"]
+    _noise_sigma = np.sqrt(14.9)
 
     model = build_and_load_model()
     data_generator = DataGenerator(bs)
@@ -92,26 +93,29 @@ def delay_interval(velocity_amplitude=None, direction=1):
             left_margin = data_generator.margin // data_generator.delta_time
         v, a = data_generator.add_delay_and_margin(v_sequences_raw, a_sequences_raw, v_delay, left_margin=left_margin)
 
+        v_gt = data_generator.get_gts(v, a * 0)
+        a_gt = data_generator.get_gts(v * 0, a)
+        mix_gt = data_generator.get_gts(v, a)
+
+        v, a = data_generator.add_noise(v, a, _noise_sigma)
+
         _v = v * 0. * direction
         _a = a * 1. * direction
-        gt = data_generator.get_gts(_v, _a)
         inputs = np.concatenate([_v, _a], axis=-1)
         pred = model.predict(inputs, bs)
-        a_modality_list.append([_v, _a, gt, pred])
+        a_modality_list.append([_v, _a, a_gt, pred])
 
         _v = v * 1. * direction
         _a = a * 0. * direction
-        gt = data_generator.get_gts(_v, _a)
         inputs = np.concatenate([_v, _a], axis=-1)
         pred = model.predict(inputs, bs)
-        v_modality_list.append([_v, _a, gt, pred])
+        v_modality_list.append([_v, _a, v_gt, pred])
 
         _v = v * 1. * direction
         _a = a * 1. * direction
-        gt = data_generator.get_gts(_v, _a)
         inputs = np.concatenate([_v, _a], axis=-1)
         pred = model.predict(inputs, bs)
-        mix_modality_list.append([_v, _a, gt, pred])
+        mix_modality_list.append([_v, _a, mix_gt, pred])
 
     x = range(int(data_generator.get_inputs_shape()[0]))
     row_num = 3
