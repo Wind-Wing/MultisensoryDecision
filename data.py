@@ -40,12 +40,6 @@ class DataGenerator(object):
         self.velocity_mean = self.stimulus_duration / 2.
         self.normalization_factor = self.max_velocity_amplitude + 2 * self.max_velocity_value
 
-        # Params for noise
-        # self.v_a_max_ratio = self.mean_velocity_sd * math.sqrt(math.e)
-        # self.max_velocity_noise_value = self.max_velocity_value / 10.
-        self.max_noise_ratio = 1.
-        self.min_noise_ratio = 0.
-
         # Sampling
         self.sampling_time_point = np.arange(
             -self.velocity_mean,
@@ -53,7 +47,7 @@ class DataGenerator(object):
             step=self.delta_time)
         self.sampling_point_num = len(self.sampling_time_point)
 
-    def next_batch(self, noise_ratio=None, velocity_input_delay=0):
+    def next_batch(self, noise_sigma=0, velocity_input_delay=0):
         assert(abs(velocity_input_delay) < 2 * self.margin)
         # velocity_input_delay - (s)
         # stimulus - [bs, sequence, features]
@@ -76,7 +70,7 @@ class DataGenerator(object):
         gt_sequences = self.get_gts(v_sequences, a_sequences)
 
         # Noise
-        v_sequences, a_sequences = self.add_noise(a_sequences, v_sequences, noise_ratio)
+        v_sequences, a_sequences = self.add_noise(v_sequences, a_sequences, noise_sigma)
 
         # Inputs
         input_sequences = np.concatenate([v_sequences, a_sequences], axis=-1)
@@ -150,18 +144,15 @@ class DataGenerator(object):
         a_sequences = np.array(a_sequences)[:, :, np.newaxis]
         return v_sequences, a_sequences
 
-    def add_noise(self, a_sequences, v_sequences, noise_ratio):
-        if noise_ratio is None:
-            noise_ratio = np.random.uniform(low=self.min_noise_ratio, high=self.max_noise_ratio, size=(self.bs, 1))
-        else:
-            noise_ratio = np.ones(shape=(self.bs, 1)) * noise_ratio
-        v_sequences = self._add_noise(v_sequences, noise_ratio)
-        a_sequences = self._add_noise(a_sequences, noise_ratio)
+    def add_noise(self, v_sequences, a_sequences, noise_sigma):
+        if noise_sigma is not 0:
+            v_sequences = v_sequences + np.random.normal(loc=0, scale=noise_sigma, size=(bs, data_generator.trail_sampling_num, 1))
+            a_sequences = a_sequences + np.random.normal(loc=0, scale=noise_sigma, size=(bs, data_generator.trail_sampling_num, 1))
         return v_sequences, a_sequences
 
-    def batch_generator(self, noise_ratio=None, velocity_input_delay=0):
+    def batch_generator(self, noise_sigma=None, velocity_input_delay=0):
         while True:
-            yield self.next_batch(noise_ratio, velocity_input_delay)
+            yield self.next_batch(noise_sigma, velocity_input_delay)
 
     def _sampling_from_normal_distribution_pdf(self, mean=0, std=1, amplitude=1):
         distribution = norm(loc=mean, scale=std)
@@ -177,12 +168,6 @@ class DataGenerator(object):
         left_margin = np.zeros(shape=[left_margin_len, 1])
         right_margin = np.zeros(shape=[right_margin_len + self.v_a_gt_delay_sampling_num, 1])
         return np.concatenate([left_margin, data, right_margin], axis=0)
-
-    def _add_noise(self, data, noise_ratio):
-        max_value = np.max(data, axis=1)
-        max_noise = noise_ratio * max_value
-        noise = np.random.uniform(low=-1 * max_noise, high=max_noise, size=(self.bs, self.trail_sampling_num))
-        return data + noise[:, :, np.newaxis]
 
     def get_inputs_shape(self):
         return self.trail_sampling_num, 2

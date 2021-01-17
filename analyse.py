@@ -14,16 +14,16 @@ from sklearn.decomposition import PCA
 from collections.abc import Iterable
 
 
-noise_ratio = 0
-analyse_dir = "./analyse_results/" + constants.get_dir(noise_ratio)
+noise_sigma = 0
+analyse_dir = "./analyse_results/" + constants.get_dir(noise_sigma)
 
 
-def validate(model, noise_ratio=None, bs=constants.training_batch_size):
+def validate(model, noise_sigma=None, bs=constants.training_batch_size):
     data_generator = DataGenerator(batch_size=bs)
-    inputs, gts = data_generator.next_batch(noise_ratio=0., velocity_input_delay=0)
+    inputs, gts = data_generator.next_batch(noise_sigma=0., velocity_input_delay=0)
     preds = model.predict(inputs, bs)
 
-    fig_dir = "./figs/" + constants.get_dir(noise_ratio)
+    fig_dir = "./figs/" + constants.get_dir(noise_sigma)
     if not os.path.exists(fig_dir):
         os.mkdir(fig_dir)
 
@@ -50,7 +50,7 @@ def visualize(inputs, gts, preds, prefix):
 
 def dynamic_system(model, bs):
     data_generator = DataGenerator(batch_size=bs)
-    inputs, gts = data_generator.next_batch(noise_ratio=0., velocity_input_delay=0)
+    inputs, gts = data_generator.next_batch(noise_sigma=0., velocity_input_delay=0)
     states = model.get_rnn_states(inputs, bs)
 
     data_shape = data_generator.get_inputs_shape()
@@ -157,17 +157,17 @@ def delay_interval(velocity_amplitude=None, direction=1):
 
 def noise_accuracy_curve():
     bs = 10000
-    noise_ratio_list = np.arange(0, 5, 0.1)
+    noise_sigma_list = np.arange(0, 5, 0.1)
 
     model = build_and_load_model()
     data_generator = DataGenerator(bs)
     avg_res = []
     vote_res = []
-    for noise_ratio in noise_ratio_list:
-        print("Noise Level " + str(noise_ratio))
-        inputs, gts = data_generator.next_batch(noise_ratio=noise_ratio)
+    for noise_sigma in noise_sigma_list:
+        print("Noise Level " + str(noise_sigma))
+        inputs, gts = data_generator.next_batch(noise_sigma=noise_sigma)
         preds = model.predict(inputs, bs)
-        # visualize(inputs, gts, preds, analyse_dir + str(noise_ratio) + "-")
+        # visualize(inputs, gts, preds, analyse_dir + str(noise_sigma) + "-")
 
         gt_direction = gts[:, -1, 0] > 0
         avg_direction, vote_direction = make_decisions(preds)
@@ -176,8 +176,8 @@ def noise_accuracy_curve():
         avg_res.append(avg_direction_acc)
         vote_res.append(vote_direction_acc)
 
-    plt.plot(noise_ratio_list, avg_res, color="red")
-    plt.plot(noise_ratio_list, vote_res, color="green")
+    plt.plot(noise_sigma_list, avg_res, color="red")
+    plt.plot(noise_sigma_list, vote_res, color="green")
     plt.savefig(analyse_dir + "noise_accuracy_curve-" + str(time.time()) + ".png")
     plt.clf()
 
@@ -213,11 +213,7 @@ def direction_discrimination_psychophysical_curve():
             # v, a = data_generator.apply_mask(v, a)
             v, a = data_generator.add_delay_and_margin(v, a, velocity_input_delay=0)
             gts = data_generator.get_gts(v, a)
-
-            a = a + np.random.normal(loc=0, scale=np.sqrt(noise), size=(bs, data_generator.trail_sampling_num, 1))
-            # a = a + _noise[:, :, np.newaxis]
-            v = v + np.random.normal(loc=0, scale=np.sqrt(noise), size=(bs, data_generator.trail_sampling_num, 1))
-            # v = v + _noise[:, :, np.newaxis]
+            v, a = data_generator.add_noise(v, a, np.sqrt(noise_sigma))
 
             def get_directions(v, a):
                 inputs = np.concatenate([v, a], axis=-1) * direction
@@ -323,7 +319,7 @@ def attractor_super_plane():
 
 
 def build_and_load_model(delay=0):
-    ckpt_dir = constants.get_dir(noise_ratio, delay)
+    ckpt_dir = constants.get_dir(noise_sigma, delay)
     model = network.RNN()
     model.load(ckpt_dir, constants.num_epochs)
     return model
