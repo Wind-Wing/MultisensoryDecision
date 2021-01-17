@@ -147,8 +147,8 @@ class DataGenerator(object):
     def add_noise(self, v_sequences, a_sequences, noise_sigma):
         assert noise_sigma >= 0
         if noise_sigma is not 0:
-            v_sequences = v_sequences + np.random.normal(loc=0, scale=noise_sigma, size=(bs, data_generator.trail_sampling_num, 1))
-            a_sequences = a_sequences + np.random.normal(loc=0, scale=noise_sigma, size=(bs, data_generator.trail_sampling_num, 1))
+            v_sequences = v_sequences + np.random.normal(loc=0, scale=noise_sigma, size=(self.bs, self.trail_sampling_num, 1))
+            a_sequences = a_sequences + np.random.normal(loc=0, scale=noise_sigma, size=(self.bs, self.trail_sampling_num, 1))
         return v_sequences, a_sequences
 
     def batch_generator(self, noise_sigma=None, velocity_input_delay=0):
