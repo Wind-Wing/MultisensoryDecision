@@ -10,8 +10,8 @@ import numpy as np
 import scipy.integrate
 import scipy.optimize
 import scipy.stats
+import scipy.signal
 from sklearn.decomposition import PCA
-from collections.abc import Iterable
 
 
 noise_sigma = 0
@@ -143,13 +143,15 @@ def delay_interval(velocity_amplitude=None, direction=1):
     # big picture
     for i in range(len(v_delay_list)):
         color = color_list[i]
-        plt.plot(x, np.squeeze(res[-1][i][-1]), color=color)
 
-        plt.axvline(np.argmax(np.squeeze(res[-1][i][0])), color=color, linestyle='--')
-        plt.plot(x, np.squeeze(res[0][i][3] + res[1][i][3]), color=color, linestyle='--')
+        y = scipy.signal.savgol_filter(np.squeeze(res[-1][i][-1]), 31, 4)
+        plt.plot(x, y, color=color)
+        y = scipy.signal.savgol_filter(np.squeeze(res[0][i][3] + res[1][i][3]), 31, 4)
+        plt.plot(x, y, color=color, linestyle='--')
 
-        if v_delay_list[i] == 0.:
-            plt.plot(x, np.squeeze(res[-1][i][1]) / data_generator.normalization_factor, color=color, linestyle='dotted')
+        # plt.axvline(np.argmax(np.squeeze(abs(res[-1][i][0]))), color=color, linestyle='--')
+        # if v_delay_list[i] == 0.:
+        #     plt.plot(x, np.squeeze(res[-1][i][1]) / data_generator.normalization_factor, color=color, linestyle='dotted')
 
     plt.axhline(0, color='black')
     patches = [mpatches.Patch(color=c, label=d) for (c, d) in zip(color_list, v_delay_list)]
