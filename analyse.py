@@ -217,7 +217,7 @@ def direction_discrimination_psychophysical_curve():
             # v, a = data_generator.apply_mask(v, a)
             v, a = data_generator.add_delay_and_margin(v, a, velocity_input_delay=0)
             gts = data_generator.get_gts(v, a)
-            v, a = data_generator.add_noise(v, a, np.sqrt(noise_sigma))
+            v, a = data_generator.add_noise(v, a, noise)
 
             def get_directions(v, a):
                 inputs = np.concatenate([v, a], axis=-1) * direction
@@ -245,8 +245,6 @@ def direction_discrimination_psychophysical_curve():
             _a = a * 1
             mix_modality_list.append(np.mean(get_directions(_v, _a)))
 
-        fit_normal_cdf(v_amp_list, mix_modality_list)
-
         plt.plot(v_amp_list, mix_modality_list, color="black")
         plt.plot(v_amp_list, v_modality_list, color="green")
         plt.plot(v_amp_list, a_modality_list, color="red")
@@ -258,14 +256,13 @@ def direction_discrimination_psychophysical_curve():
         plt.savefig(fig_path)
         plt.clf()
 
-        mix_miu, mix_sigma = fit_normal_cdf(v_amp_list, mix_modality_list)
         v_miu, v_sigma = fit_normal_cdf(v_amp_list, v_modality_list)
         a_miu, a_sigma = fit_normal_cdf(v_amp_list, a_modality_list)
-        print("mix - %f - %f, v - %f - %f, a - %f - %f, v+a - %f "
-              % (mix_sigma, 1. / mix_sigma ** 2,
-                 v_sigma, 1. / v_sigma ** 2,
-                 a_sigma, 1. / a_sigma ** 2,
-                 1. / v_sigma ** 2 + 1. / a_sigma ** 2))
+        mix_miu, mix_sigma = fit_normal_cdf(v_amp_list, mix_modality_list)
+        print("a, v, mix \t| %f %f %f \t| %f %f %f \t| %f %f %f %f"
+              % (a_miu, v_miu, mix_miu,
+                 a_sigma, v_sigma, mix_sigma,
+                 1. / a_sigma ** 2, 1. / v_sigma ** 2, 1. / v_sigma ** 2 + 1. / a_sigma ** 2, 1. / mix_sigma ** 2))
 
 
 def integral_model_verification():
@@ -294,7 +291,7 @@ def fit_normal_cdf(x_data, y_data):
         return scipy.stats.norm.cdf(x, loc=mu, scale=sigma)
 
     plt.plot(x_data, y_data)
-    popt, pcov = scipy.optimize.curve_fit(normal_cdf, x_data, y_data)
+    popt, pcov = scipy.optimize.curve_fit(normal_cdf, x_data, y_data, bounds=([-20, 0], [15, 5]))
     plt.plot(x_data, normal_cdf(x_data, *popt))
     # plt.show()
     plt.clf()
