@@ -9,9 +9,10 @@ cell_type = "LSTM" # RNN / GRU / LSTM
 opt_type = "SGD" # Adam / SGD
 
 
-def get_dir(noise_sigma=0, delay=0):
+def get_dir(v_noise_sigma=0, a_noise_sigma=0, delay=0):
     name = "bs" + str(training_batch_size)
-    name += "_noise" + str(noise_sigma)
+    name += "v_noise" + str(v_noise_sigma)
+    name += "a_noise" + str(a_noise_sigma)
     name += "_delay" + str(delay)
     name += "_steps" + str(steps_per_epoch)
     name += "_lr" + str(learning_rate)

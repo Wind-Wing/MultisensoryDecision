@@ -14,16 +14,17 @@ import scipy.signal
 from sklearn.decomposition import PCA
 
 
-noise_sigma = 0
-analyse_dir = "./analyse_results/" + constants.get_dir(noise_sigma)
+v_noise_sigma = 0
+a_noise_sigma = 0
+analyse_dir = "./analyse_results/" + constants.get_dir(v_noise_sigma, a_noise_sigma)
 
 
-def validate(model, noise_sigma=None, bs=constants.training_batch_size):
+def validate(model, v_noise_sigma=0, a_noise_sigma=0, bs=constants.training_batch_size):
     data_generator = DataGenerator(batch_size=bs)
-    inputs, gts = data_generator.next_batch(noise_sigma=0., velocity_input_delay=0)
+    inputs, gts = data_generator.next_batch()
     preds = model.predict(inputs, bs)
 
-    fig_dir = "./figs/" + constants.get_dir(noise_sigma)
+    fig_dir = "./figs/" + constants.get_dir(v_noise_sigma, a_noise_sigma)
     if not os.path.exists(fig_dir):
         os.mkdir(fig_dir)
 
@@ -50,7 +51,7 @@ def visualize(inputs, gts, preds, prefix):
 
 def dynamic_system(model, bs):
     data_generator = DataGenerator(batch_size=bs)
-    inputs, gts = data_generator.next_batch(noise_sigma=0., velocity_input_delay=0)
+    inputs, gts = data_generator.next_batch()
     states = model.get_rnn_states(inputs, bs)
 
     data_shape = data_generator.get_inputs_shape()
@@ -76,7 +77,8 @@ def delay_interval(velocity_amplitude=None, direction=1):
     bs = 1
     v_delay_list = [-0.4, -0.2, 0, 0.2]
     color_list = ["blue", "red", "black", "green"]
-    _noise_sigma = np.sqrt(14.9)
+    v_noise_sigma = 3.65 # np.sqrt(14.9)
+    a_noise_sigma = 3.65
 
     model = build_and_load_model()
     data_generator = DataGenerator(bs)
@@ -97,7 +99,7 @@ def delay_interval(velocity_amplitude=None, direction=1):
         a_gt = data_generator.get_gts(v * 0, a)
         mix_gt = data_generator.get_gts(v, a)
 
-        v, a = data_generator.add_noise(v, a, _noise_sigma)
+        v, a = data_generator.add_noise(v, a, v_noise_sigma, a_noise_sigma)
 
         _v = v * 0. * direction
         _a = a * 1. * direction
@@ -158,33 +160,6 @@ def delay_interval(velocity_amplitude=None, direction=1):
     plt.legend(handles=patches)
 
     plt.savefig(analyse_dir + constants.cell_type + "-delay_velocity-v_amp" + str(velocity_amplitude) + "direction" + str(direction) + "-" + str(time.time()) + ".png")
-    plt.clf()
-
-
-def noise_accuracy_curve():
-    bs = 10000
-    noise_sigma_list = np.arange(0, 5, 0.1)
-
-    model = build_and_load_model()
-    data_generator = DataGenerator(bs)
-    avg_res = []
-    vote_res = []
-    for noise_sigma in noise_sigma_list:
-        print("Noise Level " + str(noise_sigma))
-        inputs, gts = data_generator.next_batch(noise_sigma=noise_sigma)
-        preds = model.predict(inputs, bs)
-        # visualize(inputs, gts, preds, analyse_dir + str(noise_sigma) + "-")
-
-        gt_direction = gts[:, -1, 0] > 0
-        avg_direction, vote_direction = make_decisions(preds)
-        avg_direction_acc = np.mean(np.equal(gt_direction, avg_direction))
-        vote_direction_acc = np.mean(np.equal(gt_direction, vote_direction))
-        avg_res.append(avg_direction_acc)
-        vote_res.append(vote_direction_acc)
-
-    plt.plot(noise_sigma_list, avg_res, color="red")
-    plt.plot(noise_sigma_list, vote_res, color="green")
-    plt.savefig(analyse_dir + "noise_accuracy_curve-" + str(time.time()) + ".png")
     plt.clf()
 
 
@@ -322,7 +297,7 @@ def attractor_super_plane():
 
 
 def build_and_load_model(delay=0):
-    ckpt_dir = constants.get_dir(noise_sigma, delay)
+    ckpt_dir = constants.get_dir(v_noise_sigma, a_noise_sigma, delay)
     model = network.RNN()
     model.load(ckpt_dir, constants.num_epochs)
     return model

@@ -47,7 +47,7 @@ class DataGenerator(object):
             step=self.delta_time)
         self.sampling_point_num = len(self.sampling_time_point)
 
-    def next_batch(self, noise_sigma=0, velocity_input_delay=0):
+    def next_batch(self, v_noise_sigma=0, a_noise_sigma=0, velocity_input_delay=0):
         assert(abs(velocity_input_delay) < 2 * self.margin)
         # velocity_input_delay - (s)
         # stimulus - [bs, sequence, features]
@@ -70,7 +70,7 @@ class DataGenerator(object):
         gt_sequences = self.get_gts(v_sequences, a_sequences)
 
         # Noise
-        v_sequences, a_sequences = self.add_noise(v_sequences, a_sequences, noise_sigma)
+        v_sequences, a_sequences = self.add_noise(v_sequences, a_sequences, v_noise_sigma, a_noise_sigma)
 
         # Inputs
         input_sequences = np.concatenate([v_sequences, a_sequences], axis=-1)
@@ -144,16 +144,18 @@ class DataGenerator(object):
         a_sequences = np.array(a_sequences)[:, :, np.newaxis]
         return v_sequences, a_sequences
 
-    def add_noise(self, v_sequences, a_sequences, noise_sigma):
-        assert noise_sigma >= 0
-        if noise_sigma is not 0:
-            v_sequences = v_sequences + np.random.normal(loc=0, scale=noise_sigma, size=(self.bs, self.trail_sampling_num, 1))
-            a_sequences = a_sequences + np.random.normal(loc=0, scale=noise_sigma, size=(self.bs, self.trail_sampling_num, 1))
+    def add_noise(self, v_sequences, a_sequences, v_noise_sigma, a_noise_sigma):
+        assert v_noise_sigma >= 0
+        assert a_noise_sigma >= 0
+        if v_noise_sigma is not 0:
+            v_sequences = v_sequences + np.random.normal(loc=0, scale=v_noise_sigma, size=(self.bs, self.trail_sampling_num, 1))
+        if a_noise_sigma is not 0:
+            a_sequences = a_sequences + np.random.normal(loc=0, scale=a_noise_sigma, size=(self.bs, self.trail_sampling_num, 1))
         return v_sequences, a_sequences
 
-    def batch_generator(self, noise_sigma=None, velocity_input_delay=0):
+    def batch_generator(self, v_noise_sigma=0, a_noise_sigma=0, velocity_input_delay=0):
         while True:
-            yield self.next_batch(noise_sigma, velocity_input_delay)
+            yield self.next_batch(v_noise_sigma, a_noise_sigma, velocity_input_delay)
 
     def _sampling_from_normal_distribution_pdf(self, mean=0, std=1, amplitude=1):
         distribution = norm(loc=mean, scale=std)

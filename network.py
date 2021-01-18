@@ -49,8 +49,8 @@ class RNN(object):
             loss=tf.keras.losses.MeanSquaredError()
         )
 
-    def train(self, noise_sigma=0, velocity_input_delay=0):
-        sub_dir = constants.get_dir(noise_sigma=noise_sigma, delay=velocity_input_delay)
+    def train(self, v_noise_sigma=0, a_noise_sigma=0, velocity_input_delay=0):
+        sub_dir = constants.get_dir(v_noise_sigma, a_noise_sigma, velocity_input_delay)
         print(sub_dir)
         _path = self.ckpt_dir + sub_dir
         if not os.path.exists(_path):
@@ -58,11 +58,11 @@ class RNN(object):
 
         tensor_board = LRTensorBoard(log_dir=self.log_dir + sub_dir, update_freq=100)
         model_ckpt = tf.keras.callbacks.ModelCheckpoint(filepath=self.ckpt_dir + sub_dir + self.ckpt_name)
-        pred_visualize = tf.keras.callbacks.LambdaCallback(on_epoch_end=lambda _, __: analyse.validate(self.model, noise_sigma))
+        pred_visualize = tf.keras.callbacks.LambdaCallback(on_epoch_end=lambda _, __: analyse.validate(self.model, v_noise_sigma, a_noise_sigma))
 
         print("Start Training")
         self.model.fit(
-            x=self.data_generator.batch_generator(noise_sigma, velocity_input_delay),
+            x=self.data_generator.batch_generator(v_noise_sigma, a_noise_sigma, velocity_input_delay),
             batch_size=constants.training_batch_size,
             epochs=constants.num_epochs,
             steps_per_epoch=constants.steps_per_epoch,
