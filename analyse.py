@@ -5,13 +5,14 @@ from data import DataGenerator
 import time
 import os
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
+import matplotlib.patches as m_patches
 import numpy as np
 import scipy.integrate
 import scipy.optimize
 import scipy.stats
 import scipy.signal
 from sklearn.decomposition import PCA
+from functools import partial
 
 
 v_noise_sigma = 0
@@ -156,7 +157,7 @@ def delay_interval(velocity_amplitude=None, direction=1):
         #     plt.plot(x, np.squeeze(res[-1][i][1]) / data_generator.normalization_factor, color=color, linestyle='dotted')
 
     plt.axhline(0, color='black')
-    patches = [mpatches.Patch(color=c, label=d) for (c, d) in zip(color_list, v_delay_list)]
+    patches = [m_patches.Patch(color=c, label=d) for (c, d) in zip(color_list, v_delay_list)]
     plt.legend(handles=patches)
 
     plt.savefig(analyse_dir + constants.cell_type + "-delay_velocity-v_amp" + str(velocity_amplitude) + "direction" + str(direction) + "-" + str(time.time()) + ".png")
@@ -170,76 +171,136 @@ def make_decisions(preds):
     return avg_directions, vote_directions
 
 
-def direction_discrimination_psychophysical_curve():
-    bs = 10000
-    data_generator = DataGenerator(bs)
+def optimal_integration():
+    bs = 1000
     model = build_and_load_model()
+    func = partial(direction_discrimination_psychophysical_curve, model=model, bs=bs)
+    # binary_search(func, bounds=([0, 4], [0, 4]), threshold=0.1)
+    for v_noise in np.arange(0, 8, 1):
+        for a_noise in np.arange(0, 15, 1):
+            v_sigma, a_sigma, mix_sigma = func(v_noise, a_noise)
+            print("v_noise: %f, a_noise: %f" % (v_noise, a_noise), end=", res: ")
+            print(v_sigma, a_sigma, 1. / v_sigma ** 2 + 1. / a_sigma ** 2, 1. / mix_sigma ** 2)
+        print()
 
+
+def binary_search(func, bounds, threshold, record_dict=None):
+    assert len(bounds) > 0
+
+    def _calc_loss(args):
+        if args not in record_dict:
+            record_dict[args] = func(*args)
+        return record_dict[args]
+
+    if record_dict is None:
+        record_dict = dict()
+
+    args_list = None
+    for bound in bounds:
+        new_args_list = []
+        if args_list is None:
+            new_args_list = [[bound[0]], [bound[1]]]
+        else:
+            for _args in args_list:
+                new_args_list.append(_args.append(bound[0]))
+                new_args_list.append(_args.append(bound[1]))
+        args_list = new_args_list
+    print(args_list)
+
+    loss_list = []
+    for _args in args_list:
+        loss_list.append(_calc_loss(_args))
+
+    # Success
+    return_list = []
+    for i in range(len(args_list)):
+        if loss_list[i] <= threshold:
+            return_list.append(args_list[i])
+    if len(args_list) != 0:
+        return return_list
+
+    # Fail
+    if not any(loss_list * loss_list[0] < 0): return []
+
+    # Binary search
+    center_point = [(bound[0] + bound[1]) / 2. for bound in bounds]
+    return_list = []
+    for _args in args_list:
+        new_bound = []
+        for i in range(len(_args)):
+            new_bound.append([_args[i], center_point[i]].sort())
+        return_list.append(binary_search(func, new_bound, threshold))
+    return return_list
+
+
+def direction_discrimination_psychophysical_curve(v_noise, a_noise, model, bs):
     step = 1
     v_amp_list = np.arange(-15, 15 + step, step)
-    for noise in np.arange(12, 20, 1):
-        print("noise: " + str(noise))
-        a_modality_list = []
-        v_modality_list = []
-        mix_modality_list = []
-        for v_amp in v_amp_list:
-            print("velocity amplitude: " + str(v_amp))
-            if v_amp >= 0:
-                direction = 1
-            else:
-                direction = -1
-                v_amp = abs(v_amp)
+    data_generator = DataGenerator(bs)
 
-            v, a = data_generator.get_raw_inputs(velocity_amplitude=v_amp)
-            # v, a = data_generator.apply_mask(v, a)
-            v, a = data_generator.add_delay_and_margin(v, a, velocity_input_delay=0)
-            gts = data_generator.get_gts(v, a)
-            v, a = data_generator.add_noise(v, a, noise)
+    a_modality_list = []
+    v_modality_list = []
+    mix_modality_list = []
+    for v_amp in v_amp_list:
+        # print("velocity amplitude: " + str(v_amp))
+        if v_amp >= 0:
+            direction = 1
+        else:
+            direction = -1
+            v_amp = abs(v_amp)
 
-            def get_directions(v, a):
-                inputs = np.concatenate([v, a], axis=-1) * direction
-                preds = model.predict(inputs, bs)
-                avg_directions, vote_directions = make_decisions(preds)
+        v, a = data_generator.get_raw_inputs(velocity_amplitude=v_amp)
+        # v, a = data_generator.apply_mask(v, a)
+        v, a = data_generator.add_delay_and_margin(v, a, velocity_input_delay=0)
+        gts = data_generator.get_gts(v, a)
+        v, a = data_generator.add_noise(v, a, v_noise, a_noise)
 
-                # if np.sum(a) == 0:
-                #     fig_path = analyse_dir + \
-                #                constants.cell_type + \
-                #                "-direction_discrimination_psychophysical_curve" \
-                #                "-noise" + str(noise)
-                #     visualize(inputs, inputs, preds, fig_path)
+        def get_directions(v, a):
+            inputs = np.concatenate([v, a], axis=-1) * direction
+            preds = model.predict(inputs, bs)
+            avg_directions, vote_directions = make_decisions(preds)
 
-                return avg_directions
+            # if np.sum(a) == 0:
+            #     fig_path = analyse_dir + \
+            #                constants.cell_type + \
+            #                "-direction_discrimination_psychophysical_curve" \
+            #                "-noise" + str(noise)
+            #     visualize(inputs, inputs, preds, fig_path)
 
-            _v = v * 1
-            _a = a * 0
-            v_modality_list.append(np.mean(get_directions(_v, _a)))
+            return avg_directions
 
-            _v = v * 0
-            _a = a * 1
-            a_modality_list.append(np.mean(get_directions(_v, _a)))
+        _v = v * 1
+        _a = a * 0
+        v_modality_list.append(np.mean(get_directions(_v, _a)))
 
-            _v = v * 1
-            _a = a * 1
-            mix_modality_list.append(np.mean(get_directions(_v, _a)))
+        _v = v * 0
+        _a = a * 1
+        a_modality_list.append(np.mean(get_directions(_v, _a)))
 
-        plt.plot(v_amp_list, mix_modality_list, color="black")
-        plt.plot(v_amp_list, v_modality_list, color="green")
-        plt.plot(v_amp_list, a_modality_list, color="red")
-        fig_path = analyse_dir + \
-                   constants.cell_type + \
-                   "-direction_discrimination_psychophysical_curve" \
-                   "-noise" + str(noise) + \
-                   "-" + str(time.time()) + ".png"
-        plt.savefig(fig_path)
-        plt.clf()
+        _v = v * 1
+        _a = a * 1
+        mix_modality_list.append(np.mean(get_directions(_v, _a)))
 
-        v_miu, v_sigma = fit_normal_cdf(v_amp_list, v_modality_list)
-        a_miu, a_sigma = fit_normal_cdf(v_amp_list, a_modality_list)
-        mix_miu, mix_sigma = fit_normal_cdf(v_amp_list, mix_modality_list)
-        print("a, v, mix \t| %f %f %f \t| %f %f %f \t| %f %f %f %f"
-              % (a_miu, v_miu, mix_miu,
-                 a_sigma, v_sigma, mix_sigma,
-                 1. / a_sigma ** 2, 1. / v_sigma ** 2, 1. / v_sigma ** 2 + 1. / a_sigma ** 2, 1. / mix_sigma ** 2))
+    plt.plot(v_amp_list, mix_modality_list, color="black")
+    plt.plot(v_amp_list, v_modality_list, color="green")
+    plt.plot(v_amp_list, a_modality_list, color="red")
+    fig_path = analyse_dir + \
+               constants.cell_type + \
+               "-direction_discrimination_psychophysical_curve" \
+               "-v_noise" + str(v_noise) + \
+               "-a_noise" + str(a_noise) + \
+               "-" + str(time.time()) + ".png"
+    plt.savefig(fig_path)
+    plt.clf()
+
+    v_miu, v_sigma = fit_normal_cdf(v_amp_list, v_modality_list)
+    a_miu, a_sigma = fit_normal_cdf(v_amp_list, a_modality_list)
+    mix_miu, mix_sigma = fit_normal_cdf(v_amp_list, mix_modality_list)
+    # print("a, v, mix \t| %f %f %f \t| %f %f %f \t| %f %f %f %f"
+    #       % (a_miu, v_miu, mix_miu,
+    #          a_sigma, v_sigma, mix_sigma,
+    #          1. / a_sigma ** 2, 1. / v_sigma ** 2, 1. / v_sigma ** 2 + 1. / a_sigma ** 2, 1. / mix_sigma ** 2))
+    return v_sigma, a_sigma, mix_sigma
 
 
 def integral_model_verification():
@@ -309,4 +370,4 @@ if __name__ == "__main__":
     #     for direction in (-1, 1):
     #         delay_interval(velocity_amplitude=v_amp, direction=direction)
     # integral_model_verification()
-    direction_discrimination_psychophysical_curve()
+    optimal_integration()

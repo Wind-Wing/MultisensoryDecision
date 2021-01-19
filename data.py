@@ -147,9 +147,9 @@ class DataGenerator(object):
     def add_noise(self, v_sequences, a_sequences, v_noise_sigma, a_noise_sigma):
         assert v_noise_sigma >= 0
         assert a_noise_sigma >= 0
-        if v_noise_sigma is not 0:
+        if v_noise_sigma != 0:
             v_sequences = v_sequences + np.random.normal(loc=0, scale=v_noise_sigma, size=(self.bs, self.trail_sampling_num, 1))
-        if a_noise_sigma is not 0:
+        if a_noise_sigma != 0:
             a_sequences = a_sequences + np.random.normal(loc=0, scale=a_noise_sigma, size=(self.bs, self.trail_sampling_num, 1))
         return v_sequences, a_sequences
 
