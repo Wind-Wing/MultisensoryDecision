@@ -14,6 +14,7 @@ import scipy.signal
 from sklearn.decomposition import PCA
 from functools import partial
 
+# TODO: Refactor the code - decouple controlled data generation and predict results analyse
 
 v_noise_sigma = 0
 a_noise_sigma = 0
@@ -160,7 +161,7 @@ def delay_interval(velocity_amplitude=None, direction=1):
     patches = [m_patches.Patch(color=c, label=d) for (c, d) in zip(color_list, v_delay_list)]
     plt.legend(handles=patches)
 
-    plt.savefig(analyse_dir + constants.cell_type + "-delay_velocity-v_amp" + str(velocity_amplitude) + "direction" + str(direction) + "-" + str(time.time()) + ".png")
+    plt.savefig(analyse_dir + "delay_velocity-v_amp" + str(velocity_amplitude) + "direction" + str(direction) + "-" + str(time.time()) + ".png")
     plt.clf()
 
 
@@ -182,6 +183,108 @@ def optimal_integration():
             print("v_noise: %f, a_noise: %f" % (v_noise, a_noise), end=", res: ")
             print(v_sigma, a_sigma, 1. / v_sigma ** 2 + 1. / a_sigma ** 2, 1. / mix_sigma ** 2)
         print()
+
+
+def sigma_curve():
+    bs = 10000
+    v_delay_list = [-0.4, -0.2, 0, 0.2]
+    v_noise_sigma = 5.1
+    a_noise_sigma = 10.9
+
+    model = build_and_load_model()
+    data_generator = DataGenerator(bs)
+
+    v_amp_list = np.arange(-15, 15 + 1, 1)
+    input_list = []
+    for v_amp in v_amp_list:
+        print("v_amp: " + str(v_amp))
+        v, a = data_generator.get_raw_inputs(abs(v_amp))
+        v_noise = np.random.normal(loc=0, scale=v_noise_sigma, size=(bs, data_generator.trail_sampling_num, 1))
+        a_noise = np.random.normal(loc=0, scale=a_noise_sigma, size=(bs, data_generator.trail_sampling_num, 1))
+        if v_amp >= 0:
+            direction = 1
+        else:
+            direction = -1
+        input_list.append([v, a, v_noise, a_noise, direction])
+
+    sigma_list = []
+    v_sigma = None
+    a_sigma = None
+    for v_delay in v_delay_list:
+        print("v_delay: " + str(v_delay))
+        mix_modality_list = []
+        v_modality_list = []
+        a_modality_list = []
+        for v, a, v_noise, a_noise, direction in input_list:
+            if v_delay < 0:
+                left_margin = (data_generator.margin + v_delay) // data_generator.delta_time
+            else:
+                left_margin = data_generator.margin // data_generator.delta_time
+            v, a = data_generator.add_delay_and_margin(v, a, v_delay, left_margin=left_margin)
+            v = v * direction + v_noise
+            a = a * direction + a_noise
+
+            inputs = np.concatenate([v, a], axis=-1)
+            preds = model.predict(inputs, bs)
+            avg_directions, _ = make_decisions(preds)
+            mix_modality_list.append(np.mean(avg_directions))
+
+            if v_delay == 0:
+                inputs = np.concatenate([v, a * 0], axis=-1)
+                preds = model.predict(inputs, bs)
+                avg_directions, _ = make_decisions(preds)
+                v_modality_list.append(np.mean(avg_directions))
+
+                inputs = np.concatenate([v * 0, a], axis=-1)
+                preds = model.predict(inputs, bs)
+                avg_directions, _ = make_decisions(preds)
+                a_modality_list.append(np.mean(avg_directions))
+
+        if v_delay == 0:
+            plt.plot(v_amp_list, v_modality_list, color="green")
+            plt.plot(v_amp_list, a_modality_list, color="red")
+        plt.plot(v_amp_list, mix_modality_list, color="black")
+        fig_path = analyse_dir + \
+                   "delay_direction_discrimination_psychophysical_curve" \
+                   "-v_noise" + str(v_noise_sigma) + \
+                   "-a_noise" + str(a_noise_sigma) + \
+                   "-delay" + str(v_delay) + \
+                   "-" + str(time.time()) + ".png"
+        plt.savefig(fig_path)
+        plt.clf()
+
+        if v_delay == 0:
+            _miu, _sigma = fit_normal_cdf(v_amp_list, v_modality_list)
+            v_sigma = _sigma
+            _miu, _sigma = fit_normal_cdf(v_amp_list, a_modality_list)
+            a_sigma = _sigma
+        _miu, _sigma = fit_normal_cdf(v_amp_list, mix_modality_list)
+        sigma_list.append(_sigma)
+
+    pred_sigma = (1. / (1. / v_sigma ** 2 + 1. / a_sigma ** 2)) ** 0.5
+
+    def autolabel(rects):
+        for rect in rects:
+            height = rect.get_height()
+            plt.text(rect.get_x() + rect.get_width() / 2., 1.01 * height, '%f' % height)
+
+    x = range(0, len(v_delay_list) + 3, 1)
+    y = [v_sigma, a_sigma, pred_sigma] + sigma_list
+    label = ["v", "a", "pred"] + [str(i) for i in v_delay_list]
+    bar = plt.bar(x=x, height=y, tick_label=label)
+    autolabel(bar)
+
+    fig_path = analyse_dir + \
+               "sigma_bar" \
+               "-v_noise" + str(v_noise_sigma) + \
+               "-a_noise" + str(a_noise_sigma) + \
+               "-" + str(time.time()) + ".png"
+    plt.savefig(fig_path)
+    plt.clf()
+
+
+def fisher_information():
+    pass
 
 
 def binary_search(func, bounds, threshold, record_dict=None):
@@ -262,8 +365,7 @@ def direction_discrimination_psychophysical_curve(v_noise, a_noise, model, bs):
 
             # if np.sum(a) == 0:
             #     fig_path = analyse_dir + \
-            #                constants.cell_type + \
-            #                "-direction_discrimination_psychophysical_curve" \
+            #                "direction_discrimination_psychophysical_curve" \
             #                "-noise" + str(noise)
             #     visualize(inputs, inputs, preds, fig_path)
 
@@ -285,8 +387,7 @@ def direction_discrimination_psychophysical_curve(v_noise, a_noise, model, bs):
     plt.plot(v_amp_list, v_modality_list, color="green")
     plt.plot(v_amp_list, a_modality_list, color="red")
     fig_path = analyse_dir + \
-               constants.cell_type + \
-               "-direction_discrimination_psychophysical_curve" \
+               "direction_discrimination_psychophysical_curve" \
                "-v_noise" + str(v_noise) + \
                "-a_noise" + str(a_noise) + \
                "-" + str(time.time()) + ".png"
@@ -313,15 +414,15 @@ def integral_model_verification():
 
         inputs = np.concatenate([v, a * 0], axis=-1)
         preds = model.predict(inputs, 1) * data_generator.normalization_factor
-        visualize(inputs, inputs, preds, constants.cell_type + "-integral-" + "level" + str(level) + "-v")
+        visualize(inputs, inputs, preds, "integral-" + "level" + str(level) + "-v")
 
         inputs = np.concatenate([v * 0, a], axis=-1)
         preds = model.predict(inputs, 1) * data_generator.normalization_factor
-        visualize(inputs, inputs, preds, constants.cell_type + "-integral-" + "level" + str(level) + "-a")
+        visualize(inputs, inputs, preds, "integral-" + "level" + str(level) + "-a")
 
         inputs = np.concatenate([v, a], axis=-1)
         preds = model.predict(inputs, 1) * data_generator.normalization_factor
-        visualize(inputs, inputs, preds, constants.cell_type + "-integral-" + "level" + str(level) + "-mix")
+        visualize(inputs, inputs, preds, "integral-" + "level" + str(level) + "-mix")
 
 
 def fit_normal_cdf(x_data, y_data):
@@ -370,4 +471,5 @@ if __name__ == "__main__":
     #     for direction in (-1, 1):
     #         delay_interval(velocity_amplitude=v_amp, direction=direction)
     # integral_model_verification()
-    optimal_integration()
+    # optimal_integration()
+    sigma_curve()
